@@ -6,10 +6,10 @@
 apiVersion: pipelinesascode.tekton.dev/v1alpha1
 kind: Repository
 metadata:
-  name: kind-lab
+  name: kind-lab-argo-kargo-tekton
   namespace: pipelines-as-code
 spec:
-  url: "https://git.local/{{ .Values.forgejoOwner }}/kind-lab"
+  url: "https://git.local/{{ .Values.forgejoOwner }}/kind-lab-argo-kargo-tekton"
   git_provider:
     type: forgejo
     url: "https://git.local"
