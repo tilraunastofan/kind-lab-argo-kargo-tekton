@@ -1,0 +1,13 @@
+# helm/event-generator/Chart.yaml
+#
+# The minimum a Helm chart needs to exist: apiVersion (v2 = the Helm 3
+# chart format), a name, and a chart version (bumped when the chart's
+# templates/structure change — unrelated to the app's own image tag below,
+# which is an *application* version tracked separately in values.yaml).
+# Helm itself is just a templating engine over plain Kubernetes YAML — every
+# file under templates/ gets rendered with values.yaml's values substituted
+# in, then the result is what ArgoCD actually applies to the cluster.
+apiVersion: v2
+name: event-generator
+description: Go event-generator demo app writing synthetic events into Clickhouse
+version: 0.1.0

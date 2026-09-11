@@ -1,0 +1,14 @@
+# helm/metrics-server/values.yaml
+#
+# metrics-server scrapes each node's kubelet for CPU/memory stats (what
+# `kubectl top` reads). By default it verifies the kubelet's TLS
+# certificate against a real CA — but kind's kubelets serve a self-signed
+# cert nothing trusts, so that verification fails and metrics-server can
+# never actually reach them. This is the exact same class of problem
+# helm/datadog-agent's `kubeletTlsVerify: false` works around for the
+# Datadog Agent; --kubelet-insecure-tls is metrics-server's equivalent
+# escape hatch. Fine for a fully local, non-internet-facing kind cluster
+# only — see https://gist.github.com/sanketsudake/a089e691286bf2189bfedf295222bd43
+# for the general kind+metrics-server gotcha this addresses.
+args:
+  - --kubelet-insecure-tls

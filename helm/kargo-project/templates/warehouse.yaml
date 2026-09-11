@@ -1,0 +1,23 @@
+# helm/kargo-project/templates/warehouse.yaml
+#
+# Watches ghcr.io/tilraunastofan/kind-lab-argo-kargo-tekton/event-generator for new tags,
+# turning each one into Freight the dev Stage can promote. Credentials
+# come from the event-generator-image Secret (Task 2) — Kargo discovers
+# it by matching the Secret's kargo.akuity.io/cred-type: image label and
+# repoURL field against this subscription's repoURL, not by name.
+#
+# imageSelectionStrategy: NewestBuild (not the default SemVer) because
+# event-generator's tags are git short-SHAs (scripts/build-and-push.sh),
+# not semantic versions — confirmed against Kargo's own source
+# (api/v1alpha1/zz_subscription_types.go): NewestBuild selects by image
+# creation timestamp instead of attempting to parse the tag as semver.
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Warehouse
+metadata:
+  name: event-generator
+  namespace: {{ .Values.projectName }}
+spec:
+  subscriptions:
+    - image:
+        repoURL: {{ .Values.imageRepoURL }}
+        imageSelectionStrategy: NewestBuild

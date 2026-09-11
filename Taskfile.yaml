@@ -1,0 +1,22 @@
+version: "3"
+
+tasks:
+  cluster:up:
+    desc: Bootstrap the full kind-lab cluster (step-ca, cloud-provider-kind, kind, Cilium, cert-manager, DNS, smoke test)
+    cmds:
+      - ./bootstrap.sh
+
+  cluster:down:
+    desc: Tear down the kind-lab cluster
+    cmds:
+      - ./scripts/cluster-down.sh
+
+  cluster:status:
+    desc: Quick health check of the cluster
+    cmds:
+      - ./scripts/cluster-status.sh
+
+  smoke:test:
+    desc: Re-run just the smoke-test verification
+    cmds:
+      - ./scripts/smoke-test.sh

@@ -1,0 +1,38 @@
+# gitops/apps/datadog-agent.yaml
+#
+# Instantiates the DatadogAgent custom resource (helm/datadog-agent),
+# which the Datadog Operator (gitops/apps/datadog-operator.yaml) turns
+# into the actual running Node Agent + Cluster Agent.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: datadog-agent
+  namespace: argocd
+  annotations:
+    # "1" — same tier as event-generator and other app-level resources.
+    # Comes after datadog-operator's wave "-2" so the DatadogAgent CRD is
+    # already registered by the time ArgoCD tries to apply this
+    # Application's CR — the same ordering guarantee clickhouse.yaml
+    # relies on relative to clickhouse-operator.yaml.
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
+    targetRevision: main
+    path: helm/datadog-agent
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: datadog
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m

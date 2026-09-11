@@ -1,0 +1,19 @@
+# helm/clickhouse/templates/keepercluster.yaml
+#
+# ClickHouse Keeper is a ZooKeeper-compatible coordination service used for
+# replicated-table coordination. The operator's ClickHouseCluster CRD
+# requires a keeperClusterRef unconditionally — there's no "standalone, no
+# coordination" mode — so this is the minimum-footprint Keeper deployment
+# (one replica) rather than something we can skip outright the way the
+# bitnami chart let us disable it entirely via `keeper.enabled: false`.
+apiVersion: clickhouse.com/v1alpha1
+kind: KeeperCluster
+metadata:
+  name: {{ .Values.name }}
+  namespace: demo-app
+spec:
+  replicas: {{ .Values.keeper.replicas }}
+  dataVolumeClaimSpec:
+    resources:
+      requests:
+        storage: {{ .Values.keeper.storage | quote }}

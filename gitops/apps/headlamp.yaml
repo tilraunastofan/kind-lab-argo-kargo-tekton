@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: headlamp
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  sources:
+    - repoURL: https://kubernetes-sigs.github.io/headlamp/
+      chart: headlamp
+      targetRevision: 0.45.0
+      helm:
+        valueFiles:
+          - $values/helm/headlamp/values.yaml
+    - repoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
+      targetRevision: main
+      ref: values
+    - repoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
+      targetRevision: main
+      path: helm/headlamp/extras
+      directory:
+        include: "*.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: headlamp
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m

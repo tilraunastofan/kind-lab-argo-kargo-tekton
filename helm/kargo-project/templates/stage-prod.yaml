@@ -1,0 +1,30 @@
+# helm/kargo-project/templates/stage-prod.yaml
+#
+# sources.stages: [dev] means prod can only request Freight that has
+# already been promoted to (and passed verification in) dev — it's not
+# eligible straight from the Warehouse. Combined with project.yaml's
+# autoPromotionEnabled: false for this stage, promotion still requires an
+# explicit `kargo promote` / dashboard click even once eligible.
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: prod
+  namespace: {{ .Values.projectName }}
+spec:
+  requestedFreight:
+    - origin:
+        kind: Warehouse
+        name: event-generator
+      sources:
+        stages:
+          - dev
+  promotionTemplate:
+    spec:
+      vars:
+        - name: valuesFile
+          value: {{ .Values.prodValuesFile }}
+        - name: appName
+          value: event-generator
+      steps:
+        - task:
+            name: promote-event-generator

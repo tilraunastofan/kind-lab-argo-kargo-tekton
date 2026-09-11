@@ -1,0 +1,54 @@
+# gitops/apps/tekton-pipelines.yaml
+#
+# Installs Tekton Pipelines from a vendored copy of the upstream release
+# manifest (no official Helm chart exists) — same "directory source over a
+# single vendored file" shape root-app.yaml itself uses for gitops/apps.
+# Split into its own Application, one wave ahead of pipelines-as-code.yaml,
+# for the same CRD-before-CR reason clickhouse-operator.yaml and
+# datadog-operator.yaml are split from what depends on them: Pipelines-as-Code
+# creates PipelineRun/TaskRun objects that require Tekton's CRDs to already
+# be registered.
+#
+# Uses ignoreDifferences to exclude .spec.preserveUnknownFields from sync status
+# evaluation. The live CRDs were created without this field (or with it unset),
+# but the upstream Tekton manifests explicitly set preserveUnknownFields: false.
+# ArgoCD detects this as an OutOfSync diff, but the field itself is benign —
+# both unset and false are functionally equivalent for this CRD property.
+# ignoreDifferences suppresses this false positive without requiring manifest
+# changes or cluster patches, letting ArgoCD recognize the CRDs as Synced.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tekton-pipelines
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
+    targetRevision: main
+    path: vendor/tekton-pipelines
+    directory:
+      recurse: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: tekton-pipelines
+  ignoreDifferences:
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      jsonPointers:
+        - /spec/preserveUnknownFields
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m

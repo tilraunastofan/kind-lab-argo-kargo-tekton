@@ -1,0 +1,32 @@
+# helm/event-generator/extras/httproute.yaml
+#
+# HTTPRoute is part of the Gateway API (the modern successor to Ingress) —
+# it attaches routing rules to a Gateway via parentRefs, without needing to
+# touch the Gateway object itself. That's what lets every app in this repo
+# add its own HTTPRoute independently while helm/gateway's chart remains the
+# single owner of the shared lab-gateway Gateway's listener list.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: event-generator
+  namespace: demo-app
+spec:
+  parentRefs:
+    - name: lab-gateway
+      namespace: lab-gateway
+      # sectionName pins this route to one specific listener on the
+      # Gateway (the https-event-generator listener helm/gateway/values.yaml
+      # renders in Task 9) rather than matching every listener on
+      # lab-gateway — required here since the Gateway has many listeners,
+      # one per app, and this route should only ever serve HTTPS traffic
+      # for event-generator.tekton-lab.test.
+      sectionName: https-event-generator
+  hostnames:
+    - event-generator.tekton-lab.test
+  rules:
+    - backendRefs:
+        # Routes to the Service defined in templates/service.yaml, port 80
+        # — the Service's ClusterIP port, which then forwards to the Pod's
+        # containerPort 8080 per that Service's targetPort.
+        - name: event-generator
+          port: 80

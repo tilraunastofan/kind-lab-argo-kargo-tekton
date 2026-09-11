@@ -1,0 +1,4 @@
+apiVersion: v2
+name: dns
+description: In-cluster dnsmasq resolving *.tekton-lab.test to the shared Gateway
+version: 0.1.0

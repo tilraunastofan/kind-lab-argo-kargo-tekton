@@ -1,0 +1,29 @@
+# helm/event-generator/values.yaml
+#
+# The knobs templates/*.yaml reference via {{ .Values.<key> }}. This is the
+# file a human (today) or Kargo (sub-project 3b) edits to roll out a new
+# image — nothing else in this chart needs to change to deploy a new build.
+
+# Templated (see templates/deployment.yaml, templates/service.yaml) so the
+# same chart can deploy into a second namespace for sub-project 3b's "dev"
+# environment (values-dev.yaml overrides this to demo-app-dev) without
+# duplicating the chart itself.
+namespace: demo-app
+
+image:
+  repository: ghcr.io/tilraunastofan/kind-lab-argo-kargo-tekton/event-generator
+  tag: "774b747" # set by a human today, by Kargo in sub-project 3b
+
+# The Kubernetes Service DNS name for Clickhouse, in the cluster-internal
+# form <service-name>.<namespace>.svc.cluster.local:<port>. CoreDNS (the
+# cluster's built-in DNS server) resolves this automatically for any
+# Service in any namespace — no manual /etc/hosts-style wiring needed,
+# unlike the *.tekton-lab.test hostnames this repo resolves externally via the
+# macOS resolver + in-cluster dnsmasq. Port 9000 is Clickhouse's native TCP
+# protocol port (as opposed to 8123, its HTTP interface). The headless
+# Service name "clickhouse-clickhouse-headless" comes from the ClickHouse
+# Kubernetes operator's naming convention: "<ClickHouseCluster name>-
+# clickhouse-headless" — see helm/clickhouse/templates/clickhousecluster.yaml.
+clickhouseAddr: clickhouse-clickhouse-headless.demo-app.svc.cluster.local:9000
+
+highLoadDurationSeconds: 30

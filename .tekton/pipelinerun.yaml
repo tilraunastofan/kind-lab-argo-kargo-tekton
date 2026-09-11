@@ -1,0 +1,30 @@
+# .tekton/pipelinerun.yaml
+#
+# Minimal proof-of-concept pipeline — PAC auto-discovers any .tekton/*.yaml
+# on the pushed branch. Deliberately not a port of .github/workflows/ci.yml
+# (lint/test/build-push stay GitHub Actions' job, per this sub-project's
+# spec) — this only needs to prove push -> webhook -> PipelineRun -> pod
+# runs.
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: kind-lab-pac-poc-
+  annotations:
+    # PAC discovers this file because it matches one of these two
+    # annotations' event filters — "push to main" mirrors this repo's
+    # other CI (.github/workflows/ci.yml also triggers on push to main).
+    pipelinesascode.tekton.dev/on-event: "[push]"
+    pipelinesascode.tekton.dev/on-target-branch: "[main]"
+spec:
+  pipelineSpec:
+    tasks:
+      - name: hello-from-tekton
+        taskSpec:
+          steps:
+            - name: echo-and-list
+              image: alpine:3.20
+              script: |
+                #!/bin/sh
+                set -e
+                echo "pac says hi from $(hostname)"
+                echo "triggered by PAC on kind-lab"

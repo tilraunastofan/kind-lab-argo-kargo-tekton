@@ -1,0 +1,95 @@
+# helm/event-generator/templates/deployment.yaml
+#
+# A Deployment is Kubernetes' standard way to run a stateless, replicated
+# app: it manages a ReplicaSet (which in turn manages the actual Pods),
+# handling rolling updates, self-healing (a crashed Pod is replaced
+# automatically), and scaling. `event-generator` has no per-Pod identity or
+# storage of its own — all its state lives in Clickhouse — so a Deployment
+# is the right primitive (as opposed to a StatefulSet, which the bitnami/
+# clickhouse chart itself likely uses under the hood for Clickhouse, since
+# that does need stable identity/storage per replica).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: event-generator
+  namespace: {{ .Values.namespace }}
+spec:
+  # A lab demo app doesn't need multiple replicas — one Pod is enough to
+  # prove the mechanism. (Multiple replicas would also each run their own
+  # independent background inserter loop, multiplying the insert rate in a
+  # way the spec doesn't ask for.)
+  replicas: 1
+  # selector tells the Deployment which Pods belong to it, by label match —
+  # this must equal template.metadata.labels below. This label-selector
+  # pattern (not "Pods with this exact name") is how nearly everything in
+  # Kubernetes groups objects: Services, Deployments, NetworkPolicies all
+  # select Pods this same way.
+  selector:
+    matchLabels:
+      app: event-generator
+  # template is the Pod template — the spec every Pod this Deployment
+  # creates is stamped from. Changing anything under `template` (a new
+  # image tag, a new env var) triggers a rolling update: new Pods matching
+  # the new template come up, old ones are terminated, one at a time by
+  # default.
+  template:
+    metadata:
+      labels:
+        app: event-generator
+    spec:
+      # Without this, the kubelet would try to pull
+      # ghcr.io/tilraunastofan/kind-lab-argo-kargo-tekton/event-generator anonymously and
+      # fail with ImagePullBackOff, since the package is private. This
+      # references the Secret scripts/registry-secret-up.sh (Task 11)
+      # creates in this same demo-app namespace — imagePullSecrets only
+      # works with Secrets in the same namespace as the Pod.
+      imagePullSecrets:
+        - name: ghcr-pull
+      containers:
+        - name: event-generator
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          ports:
+            - containerPort: 8080
+          # env vars are how this chart hands the container its runtime
+          # config — matching exactly what main.go reads via os.Getenv.
+          # The `| quote` pipeline below wraps the templated value in YAML
+          # double quotes, which matters for highLoadDurationSeconds: without it,
+          # Helm would render a bare YAML integer (30) where a Kubernetes
+          # env var value must be a string.
+          env:
+            - name: CLICKHOUSE_ADDR
+              value: {{ .Values.clickhouseAddr | quote }}
+            - name: CLICKHOUSE_USER
+              value: "default"
+            # helm/clickhouse/templates/secret.yaml owns this Secret
+            # directly (a fixed, committed password — see that file for
+            # why), so this Deployment just reads it back out by name.
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: clickhouse-admin-password
+                  key: password
+            - name: HIGH_LOAD_DURATION_SECONDS
+              value: {{ .Values.highLoadDurationSeconds | quote }}
+          # readinessProbe: an HTTP GET to /healthz on a timer. Failing
+          # this doesn't restart the Pod — it just removes it from the
+          # Service's endpoint list, so no traffic gets routed here until
+          # it passes again. initialDelaySeconds gives the container a
+          # moment to start before the first check.
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          # livenessProbe: same endpoint, but failing this restarts the
+          # container entirely — reserved for "this process is broken and
+          # needs a fresh start", which is why its thresholds here are a
+          # touch more relaxed (longer initialDelaySeconds/periodSeconds)
+          # than the readinessProbe's.
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10

@@ -1,0 +1,44 @@
+<!-- demo-apps/event-generator/static/index.html -->
+<!--
+  Deliberately no frontend framework/build step, per the spec — this file
+  is embedded directly into the Go binary via handlers.go's //go:embed and
+  served as-is. A more complex Kubernetes app might build this as a
+  separate frontend container behind its own Service, but for a single
+  lab demo page, one static file served by the same process that owns the
+  API it calls is the simplest thing that works.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>event-generator</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 32rem; margin: 4rem auto; }
+    button { font-size: 1rem; padding: 0.5rem 1rem; cursor: pointer; }
+    #status { margin-top: 1rem; color: #555; }
+  </style>
+</head>
+<body>
+  <h1>event-generator</h1>
+  <p>Writes synthetic events into Clickhouse continuously at a low background rate.</p>
+  <button id="trigger">Trigger High Load</button>
+  <p id="status"></p>
+  <script>
+    // Calls the same-origin POST /api/load/high handler defined in
+    // handlers.go. Same-origin means no CORS configuration is needed —
+    // this page and the API it calls are served by the same Go process,
+    // behind the same https://event-generator.tekton-lab.test Gateway listener.
+    document.getElementById('trigger').addEventListener('click', async () => {
+      const status = document.getElementById('status');
+      status.textContent = 'Triggering...';
+      try {
+        const res = await fetch('/api/load/high', { method: 'POST' });
+        if (!res.ok) throw new Error('request failed: ' + res.status);
+        status.textContent = 'High load triggered.';
+      } catch (err) {
+        status.textContent = 'Error: ' + err.message;
+      }
+    });
+  </script>
+</body>
+</html>

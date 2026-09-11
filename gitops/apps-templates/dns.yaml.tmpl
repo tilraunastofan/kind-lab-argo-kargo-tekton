@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dns
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
+    targetRevision: main
+    path: helm/dns
+    helm:
+      values: |
+        gatewayIP: "${GATEWAY_IP}"
+        configChecksum: "${CONFIG_CHECKSUM}"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dns-utils
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m

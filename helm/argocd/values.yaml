@@ -1,0 +1,6 @@
+fullnameOverride: argocd
+configs:
+  params:
+    server.insecure: true
+  cm:
+    application.resourceTrackingMethod: annotation

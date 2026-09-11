@@ -1,0 +1,30 @@
+# helm/clickhouse/templates/clickhousecluster.yaml
+#
+# The operator names its generated headless Service
+# "<metadata.name>-clickhouse-headless" — with metadata.name "clickhouse"
+# here, that's the slightly redundant-looking
+# "clickhouse-clickhouse-headless.demo-app.svc.cluster.local", exposing
+# ClickHouse's native protocol on 9000 and HTTP on 8123 (plus a few
+# internal ports). helm/event-generator/values.yaml's `clickhouseAddr`
+# points at this exact name — see that file if either name ever changes.
+apiVersion: clickhouse.com/v1alpha1
+kind: ClickHouseCluster
+metadata:
+  name: {{ .Values.name }}
+  namespace: demo-app
+spec:
+  replicas: {{ .Values.clickhouse.replicas }}
+  dataVolumeClaimSpec:
+    resources:
+      requests:
+        storage: {{ .Values.clickhouse.storage | quote }}
+  containerTemplate:
+    resources:
+      {{- toYaml .Values.clickhouse.resources | nindent 6 }}
+  keeperClusterRef:
+    name: {{ .Values.name }}
+  settings:
+    defaultUserPassword:
+      secret:
+        name: {{ .Values.name }}-admin-password
+        key: password

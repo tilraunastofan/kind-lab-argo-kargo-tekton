@@ -1,0 +1,40 @@
+# gitops/apps/metrics-server.yaml
+#
+# Installs metrics-server (https://github.com/kubernetes-sigs/metrics-server),
+# which exposes the resource.k8s.io metrics.k8s.io APIService that `kubectl
+# top nodes`/`kubectl top pods` and HorizontalPodAutoscalers read from. No
+# CRD, nothing else in this repo depends on it, so unlike clickhouse-operator
+# or datadog-operator it doesn't need its own early sync-wave — the default
+# wave is fine.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: metrics-server
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://kubernetes-sigs.github.io/metrics-server/
+      chart: metrics-server
+      targetRevision: 3.14.0
+      helm:
+        valueFiles:
+          - $values/helm/metrics-server/values.yaml
+    - repoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m

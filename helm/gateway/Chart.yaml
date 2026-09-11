@@ -1,0 +1,4 @@
+apiVersion: v2
+name: gateway
+description: Shared lab-gateway Gateway with one HTTP+HTTPS listener pair per app
+version: 0.1.0

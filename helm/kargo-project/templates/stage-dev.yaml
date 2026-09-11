@@ -1,0 +1,26 @@
+# helm/kargo-project/templates/stage-dev.yaml
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: dev
+  namespace: {{ .Values.projectName }}
+spec:
+  requestedFreight:
+    - origin:
+        kind: Warehouse
+        name: event-generator
+      sources:
+        direct: true
+  promotionTemplate:
+    spec:
+      vars:
+        - name: valuesFile
+          value: {{ .Values.devValuesFile }}
+        - name: appName
+          value: event-generator-dev
+      steps:
+        - task:
+            name: promote-event-generator
+  verification:
+    analysisTemplates:
+      - name: event-generator-healthz

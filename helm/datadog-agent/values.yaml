@@ -1,0 +1,32 @@
+name: datadog
+
+# Must match this repo's existing Datadog MCP configuration
+# (https://app.datadoghq.eu) — same org, same region. Sending data to the
+# wrong site silently reports nowhere useful (Datadog sites are fully
+# separate regional deployments, not just a routing label).
+site: datadoghq.eu
+
+# Tags every metric/host this cluster reports with a stable identifier, so
+# it's distinguishable in Datadog from anything else reporting to the same
+# org.
+clusterName: kind-lab
+
+# Where scripts/datadog-secret-up.sh (Task 1) put the API key. No app-key
+# here on purpose — nothing in this infra-metrics-only setup needs one
+# (Monitors/SLOs/the Datadog API would, but this sub-project doesn't touch
+# those).
+credentialsSecretName: datadog-secret
+credentialsSecretKey: api-key
+
+# kind's kubelet serving cert isn't signed by anything the Agent's default
+# CA bundle trusts, so the Agent's TLS-verified kubelet check fails and it
+# can't determine its own hostname (confirmed: a throwaway curl pod hitting
+# the kubelet API over HTTPS got a real `401 Unauthorized` back, not a
+# connection failure — TLS trust, not reachability or RBAC, is the actual
+# blocker). This is a kind-specific workaround, acceptable here for the
+# same reason this repo already commits things like ClickHouse's plain
+# admin password: a fully local, non-internet-facing lab cluster, not
+# production. The more "correct" fix — mounting kind's kubelet CA into the
+# Agent via the DatadogAgent CRD's `spec.global.kubelet.hostCAPath` — was
+# skipped as unnecessary complexity for a lab-only workaround.
+kubeletTlsVerify: false

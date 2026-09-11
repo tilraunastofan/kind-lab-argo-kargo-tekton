@@ -1,0 +1,34 @@
+# gitops/apps/kargo-project.yaml
+#
+# Instantiates helm/kargo-project. Later wave than kargo.yaml/
+# argo-rollouts.yaml (Task 3, wave "-2") so their CRDs are registered
+# first — same CRD-before-CR ordering already used for
+# clickhouse-operator/clickhouse and datadog-operator/datadog-agent.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kargo-project
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
+    targetRevision: main
+    path: helm/kargo-project
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kind-lab
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m

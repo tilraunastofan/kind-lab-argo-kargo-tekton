@@ -1,0 +1,67 @@
+# helm/kargo-project/templates/promotiontask.yaml
+#
+# One task, reused by both Stages via the valuesFile var they each pass in
+# — dev writes values-dev.yaml, prod writes values.yaml (the existing
+# file, unchanged path). Pattern adapted from Kargo's own official
+# akuity/kargo-examples repo (02-git-driven/02-helm-driven/01-image-only),
+# with one deliberate change: this writes straight to main instead of a
+# per-stage Git branch — every other Application in this repo lives on
+# main only, and Kargo's branch-per-stage default buys nothing at this
+# scale. No PR step either (that same example's prod Stage uses
+# git-open-pr/git-wait-for-pr) — this sub-project uses Kargo's native
+# manual approval instead (see project.yaml).
+apiVersion: kargo.akuity.io/v1alpha1
+kind: PromotionTask
+metadata:
+  name: promote-event-generator
+  namespace: {{ .Values.projectName }}
+spec:
+  vars:
+    - name: valuesFile
+    - name: appName
+  steps:
+    - uses: git-clone
+      config:
+        repoURL: {{ .Values.gitRepoURL }}
+        checkout:
+          - branch: main
+            path: ./src
+    - uses: yaml-update
+      as: update-image
+      config:
+        path: ./src/${{ "{{" }} vars.valuesFile {{ "}}" }}
+        updates:
+          - key: image.tag
+            value: ${{ "{{" }} imageFrom("{{ .Values.imageRepoURL }}").Tag {{ "}}" }}
+    - uses: git-commit
+      as: commit
+      config:
+        path: ./src
+        # DEVIATION FROM BRIEF (two rounds):
+        # 1. The brief's git-commit config used
+        #    `messageFromSteps: [update-image]`. The live cluster's Kargo
+        #    1.11.2 `git-commit-config.json` schema (confirmed via
+        #    `gh api repos/akuity/kargo/contents/.../git-commit-config.json?ref=v1.11.2`)
+        #    has no such field — `message` is required and is a plain
+        #    string expression instead.
+        # 2. A first fix using `outputs['update-image'].commitMessage`
+        #    errored at runtime ("cannot fetch commitMessage from <nil>").
+        #    Per Kargo's own promotion-tasks.md doc ("Task Context"
+        #    section), steps *inside* a PromotionTask must reference each
+        #    other's outputs via the task-scoped `task.outputs[...]`
+        #    variable, not the template-scoped `outputs[...]` — task step
+        #    aliases get namespaced at inflation time, so the task
+        #    definition itself can't know the runtime alias `outputs`
+        #    would need. Same reasoning applies to the argocd-update step
+        #    below referencing this step's own `commit` output.
+        message: ${{ "{{" }} task.outputs['update-image'].commitMessage {{ "}}" }}
+    - uses: git-push
+      config:
+        path: ./src
+    - uses: argocd-update
+      config:
+        apps:
+          - name: ${{ "{{" }} vars.appName {{ "}}" }}
+            sources:
+              - repoURL: {{ .Values.gitRepoURL }}
+                desiredRevision: ${{ "{{" }} task.outputs['commit'].commit {{ "}}" }}

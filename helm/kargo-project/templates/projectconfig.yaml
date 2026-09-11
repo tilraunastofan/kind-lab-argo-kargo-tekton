@@ -1,0 +1,21 @@
+# helm/kargo-project/templates/projectconfig.yaml
+#
+# NOT in the original task brief — added because of a CRD-version
+# mismatch discovered during Step 8's server-side dry-run: this cluster's
+# Kargo 1.11.2 moved promotionPolicies out of Project.spec (which no
+# longer has a spec field at all — see project.yaml's comment) and into
+# this separate, namespaced ProjectConfig resource instead. Confirmed via
+# `kubectl get crd projectconfigs.kargo.akuity.io -o yaml`. Named/
+# namespaced to match the Project (Kargo's own convention — one
+# ProjectConfig per project, same name as the project namespace).
+apiVersion: kargo.akuity.io/v1alpha1
+kind: ProjectConfig
+metadata:
+  name: {{ .Values.projectName }}
+  namespace: {{ .Values.projectName }}
+spec:
+  promotionPolicies:
+    - stage: dev
+      autoPromotionEnabled: true
+    - stage: prod
+      autoPromotionEnabled: false

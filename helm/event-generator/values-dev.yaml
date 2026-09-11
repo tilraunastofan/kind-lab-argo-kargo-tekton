@@ -1,0 +1,11 @@
+# helm/event-generator/values-dev.yaml
+#
+# Overrides ONLY what differs from values.yaml (Helm merges a chart's own
+# values.yaml with any additional -f/valueFiles on top, so everything not
+# listed here — clickhouseAddr, highLoadDurationSeconds — is inherited
+# unchanged; ClickHouse is deliberately shared between dev and prod, a
+# lab-scale simplification, not a data-integrity-sensitive prod database).
+namespace: demo-app-dev
+
+image:
+  tag: 951d3d1787e578c1e7efbd6817f2f3b166e7b1c9

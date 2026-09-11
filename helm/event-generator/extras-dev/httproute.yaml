@@ -1,0 +1,22 @@
+# helm/event-generator/extras-dev/httproute.yaml
+#
+# dev's counterpart to extras/httproute.yaml — routes to the Service this
+# chart renders in the demo-app-dev namespace (values-dev.yaml's
+# namespace override), via the https-event-generator-dev listener
+# helm/gateway/values.yaml gains in Step 6 below.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: event-generator
+  namespace: demo-app-dev
+spec:
+  parentRefs:
+    - name: lab-gateway
+      namespace: lab-gateway
+      sectionName: https-event-generator-dev
+  hostnames:
+    - event-generator-dev.tekton-lab.test
+  rules:
+    - backendRefs:
+        - name: event-generator
+          port: 80

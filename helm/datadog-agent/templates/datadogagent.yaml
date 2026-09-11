@@ -1,0 +1,28 @@
+# helm/datadog-agent/templates/datadogagent.yaml
+#
+# The DatadogAgent custom resource: this is the entire interface between
+# "I want infra metrics in Datadog" and the Operator actually doing it.
+# Once ArgoCD applies this, the Operator's controller notices it and
+# creates a Node Agent DaemonSet (one pod per node, collects host/container
+# metrics) and a Cluster Agent Deployment (aggregates cluster-level state
+# like pod counts and Kubernetes events) — this repo declares none of
+# those resources directly, the Operator owns creating and updating them.
+apiVersion: datadoghq.com/v2alpha1
+kind: DatadogAgent
+metadata:
+  name: {{ .Values.name }}
+  namespace: datadog
+spec:
+  global:
+    site: {{ .Values.site | quote }}
+    clusterName: {{ .Values.clusterName | quote }}
+    credentials:
+      apiSecret:
+        secretName: {{ .Values.credentialsSecretName | quote }}
+        keyName: {{ .Values.credentialsSecretKey | quote }}
+    # See the comment on values.yaml's kubeletTlsVerify: kind's kubelet
+    # serving cert isn't signed by anything the Agent's default CA bundle
+    # trusts, so without this the Agent can't reach the kubelet at all and
+    # crash-loops unable to determine its own hostname.
+    kubelet:
+      tlsVerify: {{ .Values.kubeletTlsVerify }}

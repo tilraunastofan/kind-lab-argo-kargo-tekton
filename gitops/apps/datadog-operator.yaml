@@ -1,0 +1,43 @@
+# gitops/apps/datadog-operator.yaml
+#
+# Installs the Datadog Operator, whose job is to watch for DatadogAgent
+# custom resources and turn each one into a running Node Agent DaemonSet +
+# Cluster Agent Deployment. Installing the Operator also registers the
+# DatadogAgent CRD (datadoghq.com/v2alpha1) that gitops/apps/datadog-agent.yaml
+# instantiates in this repo.
+#
+# Split into its own Application for the same CRD-before-CR ordering
+# reason clickhouse-operator.yaml is split from clickhouse.yaml: the
+# operator and its CRD must exist and be registered before ArgoCD attempts
+# to apply any DatadogAgent resource, and ArgoCD's sync-wave ordering is
+# the mechanism that guarantees that.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: datadog-operator
+  namespace: argocd
+  annotations:
+    # "-2" — same tier as clickhouse-operator: both Applications exist
+    # solely to register a CRD ahead of anything that instantiates it.
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  project: default
+  source:
+    repoURL: https://helm.datadoghq.com
+    chart: datadog-operator
+    targetRevision: 2.25.1
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: datadog
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m

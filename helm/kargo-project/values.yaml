@@ -1,0 +1,6 @@
+projectName: kind-lab
+imageRepoURL: ghcr.io/tilraunastofan/kind-lab-argo-kargo-tekton/event-generator
+gitRepoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
+devValuesFile: helm/event-generator/values-dev.yaml
+prodValuesFile: helm/event-generator/values.yaml
+devHealthzURL: https://event-generator-dev.tekton-lab.test/healthz

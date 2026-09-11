@@ -1,0 +1,64 @@
+# helm/clickhouse/templates/init-db-job.yaml
+#
+# The operator's ClickHouseCluster CRD has no built-in "create this
+# database on first boot" field, unlike some other database operators. A
+# ClickHouse-side approach (a `.sh` script under
+# /docker-entrypoint-initdb.d, the bitnami-chart mechanism this sub-project
+# started with) also isn't available here — that convention is specific to
+# bitnami's container images, and the operator uses the plain upstream
+# `clickhouse/clickhouse-server` image instead.
+#
+# An ArgoCD PostSync hook Job is the GitOps-native alternative: it runs
+# once, after every sync of this Application, against the cluster this
+# same sync just applied — but note ArgoCD has no built-in health check for
+# the ClickHouseCluster CRD, so "PostSync" only means "after the CR was
+# applied", not "after ClickHouse is actually accepting connections". The
+# retry loop below is what actually waits out that gap, rather than relying
+# on sync-wave/hook ordering to guarantee readiness.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Values.name }}-init-db
+  namespace: demo-app
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    # HookSucceeded: the Job (and its Pod) are deleted once it exits 0, so
+    # completed runs don't pile up across syncs. BeforeHookCreation: if a
+    # same-named Job from a prior sync is still around (e.g. it failed and
+    # was left for debugging), delete it before creating this run's Job,
+    # rather than erroring on "already exists".
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded,BeforeHookCreation
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 300
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: init-db
+          image: docker.io/clickhouse/clickhouse-server:25.7
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              for i in $(seq 1 60); do
+                if clickhouse-client \
+                    --host {{ .Values.name }}-clickhouse-headless \
+                    --user default \
+                    --password "${CLICKHOUSE_ADMIN_PASSWORD}" \
+                    -q "CREATE DATABASE IF NOT EXISTS {{ .Values.database }}"; then
+                  echo "{{ .Values.database }} database ready"
+                  exit 0
+                fi
+                echo "waiting for clickhouse to accept connections (attempt $i/60)..."
+                sleep 5
+              done
+              echo "timed out waiting for clickhouse"
+              exit 1
+          env:
+            - name: CLICKHOUSE_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.name }}-admin-password
+                  key: password

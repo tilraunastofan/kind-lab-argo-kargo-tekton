@@ -1,0 +1,21 @@
+# Tells PAC's controller which Forgejo repo/webhook pairing this cluster
+# serves. secret/webhook_secret reference pac-forgejo-creds (Task 2) by
+# name and key — this file only ever references that Secret, never
+# duplicates its values, so there is exactly one place (Task 2's script)
+# that can create a mismatch between the two.
+apiVersion: pipelinesascode.tekton.dev/v1alpha1
+kind: Repository
+metadata:
+  name: kind-lab
+  namespace: pipelines-as-code
+spec:
+  url: "https://git.local/{{ .Values.forgejoOwner }}/kind-lab"
+  git_provider:
+    type: forgejo
+    url: "https://git.local"
+    secret:
+      name: pac-forgejo-creds
+      key: token
+    webhook_secret:
+      name: pac-forgejo-creds
+      key: webhook.secret

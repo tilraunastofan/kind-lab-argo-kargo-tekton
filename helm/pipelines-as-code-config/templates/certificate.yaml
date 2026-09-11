@@ -1,0 +1,15 @@
+# Same shape as helm/event-generator/extras/certificate.yaml: lives in
+# lab-gateway (where the Gateway that will reference the resulting Secret
+# lives), issued by the existing step-ca ACME ClusterIssuer.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: pipelines-as-code-tls
+  namespace: lab-gateway
+spec:
+  secretName: pipelines-as-code-tls
+  dnsNames:
+    - pipelines-as-code.tekton-lab.test
+  issuerRef:
+    name: step-ca-acme
+    kind: ClusterIssuer

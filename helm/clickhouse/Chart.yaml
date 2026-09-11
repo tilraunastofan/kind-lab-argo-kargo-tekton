@@ -1,0 +1,12 @@
+# helm/clickhouse/Chart.yaml
+#
+# This chart doesn't wrap a remote/vendored chart — it just templates the
+# CRD instances (KeeperCluster, ClickHouseCluster) the official ClickHouse
+# Kubernetes operator (gitops/apps/clickhouse-operator.yaml) reconciles,
+# plus a Secret for the admin password and a Job that creates the `demo`
+# database on first boot. Same "local chart owning our own resources"
+# pattern as helm/gateway and helm/cluster-issuer.
+apiVersion: v2
+name: clickhouse
+description: ClickHouse cluster CRs (KeeperCluster + ClickHouseCluster) for the official ClickHouse Kubernetes operator
+version: 0.1.0

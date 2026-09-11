@@ -1,0 +1,26 @@
+# helm/kargo-project/templates/project.yaml
+#
+# A Kargo Project is cluster-scoped, but its metadata.name becomes the
+# namespace every other Kargo resource for this project lives in — Kargo's
+# controller creates and labels that namespace itself (confirmed against
+# akuity/kargo-examples' own manifests, which follow this exact pattern).
+# promotionPolicies is what actually implements this sub-project's
+# approval decision: dev auto-promotes new Freight the moment the
+# Warehouse discovers it; prod does not, and can only be promoted via
+# `kargo promote` / the Kargo dashboard — Kargo's own native manual
+# approval, deliberately chosen over a PR-based flow (see the spec's
+# "Scope decisions" section for why).
+#
+# DEVIATION FROM BRIEF: the brief's Project manifest put
+# promotionPolicies directly under this Project's spec. The live cluster
+# runs Kargo 1.11.2, whose `projects.kargo.akuity.io` CRD (confirmed via
+# `kubectl get crd projects.kargo.akuity.io -o yaml`) has no `spec` field
+# at all — Project is now just a marker that reconciles into a namespace.
+# promotionPolicies moved to a separate, namespaced `ProjectConfig`
+# resource (see projectconfig.yaml in this same directory) — confirmed
+# via `kubectl get crd projectconfigs.kargo.akuity.io -o yaml`, which
+# shows spec.promotionPolicies living there instead.
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Project
+metadata:
+  name: {{ .Values.projectName }}

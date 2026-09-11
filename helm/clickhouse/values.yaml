@@ -1,0 +1,45 @@
+# helm/clickhouse/values.yaml
+name: clickhouse
+
+# One ClickHouse replica and one Keeper replica: plenty for a lab's write
+# volume, and far simpler to reason about/debug than a real multi-node
+# cluster. The operator's ClickHouseCluster CRD requires a keeperClusterRef
+# even for a single-node ClickHouse — Keeper coordinates replicated tables,
+# and the operator has no "standalone, no coordination" mode — so a
+# single-replica KeeperCluster is the minimum footprint rather than
+# something we can omit outright.
+clickhouse:
+  replicas: 1
+  storage: 4Gi
+  # The operator's built-in default (512Mi limit) isn't enough headroom
+  # for ClickHouse's background merge/compaction jobs once event-generator
+  # is writing continuously — the server got OOM-killed (exit 137) every
+  # few minutes under sustained inserts. 2Gi is comfortable for a lab's
+  # write volume and well within the kind nodes' allocatable memory.
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 2Gi
+
+keeper:
+  replicas: 1
+  storage: 1Gi
+
+# A fixed, committed admin password (see templates/secret.yaml for why this
+# is deliberately a plain literal rather than an auto-generated one — same
+# ArgoCD/`helm template`-has-no-live-cluster-access reasoning that made the
+# previous bitnami-chart password rotate out from under us on every sync).
+# Fine for a fully local, non-internet-facing kind cluster only.
+adminPassword: kind-lab-clickhouse-demo
+
+# The `demo` database event-generator's clickhouse.go connects to (DSN:
+# clickhouse://<addr>/demo). The operator's CRDs have no built-in "create
+# this database on first boot" field (unlike some other DB operators), so
+# templates/init-db-job.yaml creates it via an ArgoCD PostSync hook Job
+# instead — see that file for why a Job beats an in-container init script
+# (the bitnami chart's approach, which turned out to have its own sharp
+# edges — see Task 14's commit history).
+database: demo

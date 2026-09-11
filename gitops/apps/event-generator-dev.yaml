@@ -1,0 +1,52 @@
+# gitops/apps/event-generator-dev.yaml
+#
+# "dev" — mirrors gitops/apps/event-generator.yaml exactly (same
+# two-source shape: the Helm chart itself, plus a directory source for
+# the raw Certificate/HTTPRoute manifests) except it points at
+# values-dev.yaml and the demo-app-dev namespace/extras-dev directory.
+# Sub-project 3b's Kargo Stage (Task 5) is what actually bumps this
+# Application's image tag going forward — see helm/kargo-project.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: event-generator-dev
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    # NOT in Task 4's original brief for this file — added during Task 5
+    # live verification. Kargo's argocd-update promotion step refuses to
+    # touch an Application it hasn't been explicitly delegated authority
+    # over (docs/50-user-guide/20-how-to-guides/70-argo-cd-integration.md:
+    # "that Application must be explicitly annotated..."); without this,
+    # every dev promotion fails with "... is not authorized". Format is
+    # "<kargo-project-name>:<stage-name>" (see helm/kargo-project).
+    kargo.akuity.io/authorized-stage: kind-lab:dev
+spec:
+  project: default
+  sources:
+    - repoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
+      targetRevision: main
+      path: helm/event-generator
+      helm:
+        valueFiles:
+          - values-dev.yaml
+    - repoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
+      targetRevision: main
+      path: helm/event-generator/extras-dev
+      directory:
+        include: "*.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: demo-app-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m

@@ -1,0 +1,37 @@
+# gitops/apps/argo-rollouts.yaml
+#
+# Installs Argo Rollouts (https://argo-rollouts.readthedocs.io) — used
+# here ONLY for its AnalysisTemplate/AnalysisRun CRDs, which Kargo's Stage
+# verification mechanism is built on. event-generator does NOT become an
+# Argo Rollouts Rollout object; AnalysisTemplate/AnalysisRun work standalone
+# against a plain Deployment, running one Job/HTTP check and reporting
+# success/failure back to whatever (here, Kargo) is watching the resulting
+# AnalysisRun.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argo-rollouts
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  project: default
+  source:
+    repoURL: https://argoproj.github.io/argo-helm
+    chart: argo-rollouts
+    targetRevision: 2.41.1
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argo-rollouts
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m

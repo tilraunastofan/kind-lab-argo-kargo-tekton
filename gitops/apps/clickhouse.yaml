@@ -1,0 +1,48 @@
+# gitops/apps/clickhouse.yaml
+#
+# An ArgoCD Application is a CRD instance that tells ArgoCD "watch this
+# source, keep the cluster's live state matching it". root-app.yaml (the
+# App-of-Apps) watches the whole gitops/apps/ directory, so simply adding
+# this file here is enough for ArgoCD to discover and start managing it —
+# no separate registration step.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: clickhouse
+  namespace: argocd
+  annotations:
+    # sync-wave controls ordering: ArgoCD syncs lower-numbered waves first
+    # and waits for them to be Healthy before moving to the next wave.
+    # "-1" here means Clickhouse comes up after clickhouse-operator
+    # (wave "-2" — the CRDs this Application's resources depend on must
+    # already be registered) but before the default wave "0"/"1" apps,
+    # notably event-generator (wave "1"), whose Pod would otherwise
+    # crash-loop trying to reach a Clickhouse Service that doesn't exist
+    # yet. This is soft ordering, not a hard dependency block — ArgoCD has
+    # no built-in health check for the ClickHouseCluster CRD, so it
+    # considers this Application "Healthy" as soon as the CR is applied,
+    # not once ClickHouse is actually accepting connections — see
+    # helm/clickhouse/templates/init-db-job.yaml's retry loop, which is
+    # what actually waits out that gap.
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
+    targetRevision: main
+    path: helm/clickhouse
+  destination:
+    server: https://kubernetes.default.svc # "this same cluster" — ArgoCD can also manage remote clusters, unused here
+    namespace: demo-app
+  syncPolicy:
+    automated:
+      prune: true   # delete cluster objects that are no longer in the Git source (keeps the cluster from drifting to include stuff nobody declared anymore)
+      selfHeal: true # revert any manual/out-of-band change back to match Git — this is what makes ArgoCD GitOps rather than just "kubectl apply on a timer"
+    syncOptions:
+      - CreateNamespace=true # ArgoCD creates the demo-app namespace itself if it doesn't already exist, instead of requiring a separate Namespace manifest
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m

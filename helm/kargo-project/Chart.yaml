@@ -1,0 +1,11 @@
+# helm/kargo-project/Chart.yaml
+#
+# This chart doesn't wrap a remote/vendored chart — it templates the
+# Kargo resources (Project, Warehouse, PromotionTask, two Stages, an
+# AnalysisTemplate) that drive event-generator's dev->prod promotion.
+# Same "local chart owning our own resources" pattern as helm/clickhouse,
+# helm/datadog-agent, helm/gateway.
+apiVersion: v2
+name: kargo-project
+description: Kargo Project/Warehouse/Stages for event-generator promotion
+version: 0.1.0

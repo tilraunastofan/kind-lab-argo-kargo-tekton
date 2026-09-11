@@ -1,0 +1,41 @@
+# helm/kargo-project/templates/analysistemplate.yaml
+#
+# The "proper app tests" gate the README asks for: an HTTP GET against
+# dev's actual running /healthz endpoint via Argo Rollouts' `web` metric
+# provider. Confirmed against Argo Rollouts' own source
+# (metricproviders/webmetric/webmetric.go): any non-2xx response is
+# automatically treated as a measurement error regardless of
+# successCondition, so no successCondition is needed here at all — a
+# passing check is simply "the endpoint returned 2xx within the timeout."
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: event-generator-healthz
+  namespace: {{ .Values.projectName }}
+spec:
+  metrics:
+    - name: healthz
+      provider:
+        web:
+          url: {{ .Values.devHealthzURL }}
+          # NOT in the original brief — added during Task 5 live
+          # verification. The AnalysisRun executes from inside a Pod in
+          # the cluster, which does not carry the local step-ca root in
+          # its trust store (only the macOS host does, per this repo's
+          # cert-manager/step-ca bootstrap — see CLAUDE.md). Without this,
+          # every check errors with "certificate signed by unknown
+          # authority" regardless of the app's actual health. `insecure`
+          # is documented by Argo Rollouts itself (docs/analysis/web.md,
+          # "Skip TLS verification") for exactly this kind of case; this
+          # check's purpose is app liveness, not certificate validation.
+          # Scope: this only disables TLS verification on this one
+          # metric's HTTP client for this one URL — nothing else in the
+          # cluster (not Kargo, not ArgoCD, not any other check) is
+          # affected. Acceptable here for the same reason this repo
+          # already accepts helm/datadog-agent/values.yaml's
+          # `kubeletTlsVerify: false`: fine for a fully local,
+          # non-internet-facing lab cluster, not production. The more
+          # "correct" fix — mounting the step-ca root CA into the
+          # AnalysisRun pod's trust store — was skipped as unnecessary
+          # complexity for a liveness probe at this scale.
+          insecure: true

@@ -1,0 +1,11 @@
+# helm/datadog-agent/Chart.yaml
+#
+# This chart doesn't wrap a remote/vendored chart — it just templates one
+# resource, the DatadogAgent custom resource the Datadog Operator
+# (gitops/apps/datadog-operator.yaml) reconciles into an actual running
+# Node Agent + Cluster Agent. Same "local chart owning our own resources"
+# pattern as helm/clickhouse, helm/gateway, and helm/cluster-issuer.
+apiVersion: v2
+name: datadog-agent
+description: DatadogAgent CR for the Datadog Operator
+version: 0.1.0

@@ -1,0 +1,59 @@
+# gitops/apps/clickhouse-operator.yaml
+#
+# Installs the official ClickHouse Kubernetes operator
+# (https://clickhouse.com/blog/clickhouse-kubernetes-operator), which
+# reconciles the KeeperCluster/ClickHouseCluster CRDs
+# helm/clickhouse/templates renders. Split into its own Application (rather
+# than folded into gitops/apps/clickhouse.yaml) for the same reason
+# cert-manager is separate from everything that depends on its CRDs: the
+# operator and its CRDs need to exist and be Healthy *before* ArgoCD
+# attempts to apply any ClickHouseCluster/KeeperCluster resource, and
+# sync-wave ordering is the mechanism for that.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: clickhouse-operator
+  namespace: argocd
+  annotations:
+    # "-2" — before clickhouse's own wave "-1", since that Application's
+    # resources are instances of CRDs this one installs.
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  project: default
+  source:
+    # OCI Helm chart source: ArgoCD's repoURL for an OCI registry omits the
+    # oci:// scheme prefix (unlike `helm pull`, which needs it) — the chart
+    # name and version go in `chart`/`targetRevision` as usual.
+    repoURL: ghcr.io/clickhouse
+    chart: clickhouse-operator-helm
+    targetRevision: 0.0.7
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: clickhouse-operator-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # ClickHouseCluster's CRD schema is large enough that client-side
+      # apply's kubectl.kubernetes.io/last-applied-configuration annotation
+      # blows past the 262144-byte annotation cap once annotation-based
+      # resource tracking (see cluster-wide config) adds its own tracking
+      # annotation on top — server-side apply avoids storing that
+      # last-applied-configuration annotation entirely.
+      # Note: based on what we observed during manual recovery, this
+      # predicts ArgoCD only applies this via true server-side apply on
+      # updates to an already-existing resource, and a genuinely fresh CRD
+      # create can still hit the same annotation-size error once — see
+      # README's Troubleshooting section for the one-time manual recovery
+      # command. This hasn't been re-verified on a subsequent from-scratch
+      # rebuild with the fix already in place; if a future cold rebuild
+      # does NOT hit this, this note is stale and can be removed.
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m

@@ -1,0 +1,6 @@
+# forgejoOwner is supplied at apply time via
+# gitops/apps-templates/pipelines-as-code-config.yaml.tmpl (envsubst'd by
+# scripts/pac-config-up.sh) — the Forgejo username isn't knowable at
+# authoring time, same reasoning cluster-issuer.yaml.tmpl documents for
+# STEPCA_HOST.
+forgejoOwner: ""

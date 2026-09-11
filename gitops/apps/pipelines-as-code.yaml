@@ -1,0 +1,35 @@
+# gitops/apps/pipelines-as-code.yaml
+#
+# Installs Pipelines-as-Code (PAC) from a vendored copy of the upstream
+# Kubernetes-variant release manifest. One wave after tekton-pipelines.yaml
+# — PAC's controller assumes Tekton's CRDs already exist.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pipelines-as-code
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
+    targetRevision: main
+    path: vendor/pipelines-as-code
+    directory:
+      recurse: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pipelines-as-code
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m

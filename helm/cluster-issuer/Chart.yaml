@@ -1,0 +1,4 @@
+apiVersion: v2
+name: cluster-issuer
+description: step-ca ACME ClusterIssuer for the kind-lab cluster
+version: 0.1.0

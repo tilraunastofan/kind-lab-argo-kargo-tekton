@@ -1,0 +1,58 @@
+# gitops/apps/event-generator.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: event-generator
+  namespace: argocd
+  annotations:
+    # Wave "1" (after clickhouse's wave "-1" and cert-manager's wave "-1")
+    # — matches headlamp and smoke-test's own wave "1", since none of these
+    # apps have ordering dependencies on each other, only on the
+    # lower-wave infra apps.
+    argocd.argoproj.io/sync-wave: "1"
+    # NOT in Task 4's original brief for this file — added during Task 5
+    # live verification. Kargo's argocd-update promotion step refuses to
+    # touch an Application it hasn't been explicitly delegated authority
+    # over (docs/50-user-guide/20-how-to-guides/70-argo-cd-integration.md:
+    # "that Application must be explicitly annotated..."); without this,
+    # every prod promotion fails with "... is not authorized". Format is
+    # "<kargo-project-name>:<stage-name>" (see helm/kargo-project).
+    kargo.akuity.io/authorized-stage: kind-lab:prod
+spec:
+  project: default
+  # Two sources, both pointing at *this same repo* — this is a different
+  # multi-source shape than clickhouse.yaml's remote-chart-plus-values
+  # pattern above. Here, the first source is our own local Helm chart
+  # (helm/event-generator, with its Chart.yaml/templates/values.yaml); the
+  # second is a plain "directory" source with no Helm involved at all — it
+  # just applies every *.yaml file under helm/event-generator/extras/
+  # (the Certificate and HTTPRoute) as raw Kubernetes manifests. Splitting
+  # them this way lets the Certificate live in the lab-gateway namespace
+  # while the Helm-templated Deployment/Service live in demo-app — a Helm
+  # release can only target one destination namespace, but a second
+  # "directory" source has no such restriction since it isn't a Helm
+  # release at all.
+  sources:
+    - repoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
+      targetRevision: main
+      path: helm/event-generator
+    - repoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
+      targetRevision: main
+      path: helm/event-generator/extras
+      directory:
+        include: "*.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: demo-app
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m

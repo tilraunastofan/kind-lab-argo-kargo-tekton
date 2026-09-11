@@ -1,0 +1,31 @@
+# helm/event-generator/templates/service.yaml
+#
+# A Service is a stable network identity for a set of Pods — the Deployment
+# above can churn Pods (restarts, rolling updates, each getting a new IP),
+# but `event-generator.demo-app.svc.cluster.local` always resolves to
+# whichever Pods currently match `selector` below and are passing their
+# readinessProbe. This is what the HTTPRoute (extras/httproute.yaml) routes
+# to, and what any other in-cluster workload would use to reach this app.
+apiVersion: v1
+kind: Service
+metadata:
+  name: event-generator
+  namespace: {{ .Values.namespace }}
+spec:
+  # No `type:` field means this defaults to ClusterIP — only reachable from
+  # inside the cluster. External access comes entirely through the shared
+  # Gateway (Cilium's Gateway API implementation) via the HTTPRoute below,
+  # not by exposing this Service directly — the same pattern every other
+  # app in this repo (Headlamp, ArgoCD, the smoke test) uses.
+  selector:
+    app: event-generator
+  ports:
+    # port is what other things inside the cluster connect to (80, the
+    # HTTPRoute's backendRef below uses this); targetPort is the actual
+    # port the container listens on (8080, matching main.go's default and
+    # the Deployment's containerPort). They don't have to match, and
+    # deliberately don't here — 80 is the conventional "just HTTP" port for
+    # cluster-internal Service traffic, kept separate from whatever port
+    # the app binary itself happens to use.
+    - port: 80
+      targetPort: 8080
