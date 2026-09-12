@@ -16,6 +16,11 @@ spec:
     repoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
     targetRevision: main
     path: vendor/pipelines-as-code
+    # Deliberately no `directory.recurse: false` here — see the comment
+    # in gitops/apps/tekton-pipelines.yaml (this Application's sibling):
+    # ArgoCD's own Application struct drops an explicit `false` for this
+    # field on write, which caused root-app (the parent App-of-Apps) to
+    # diff forever against its own children. Don't re-add it.
   destination:
     server: https://kubernetes.default.svc
     namespace: pipelines-as-code

@@ -141,11 +141,42 @@ load_daemon() {
   sudo launchctl kickstart -k "${target}" || die "failed to kickstart LaunchDaemon ${PLIST_LABEL}"
 }
 
+# our_daemon_pid: the PID launchd is actually running our LaunchDaemon
+# label under, or empty if it isn't running. Cross-checking against this
+# (rather than just "is *someone* listening on lan_ip:443") matters
+# because a DIFFERENT LaunchDaemon — e.g. another lab repo's
+# identically-purposed forwarder, before this repo gave its own label a
+# repo-specific name — can already be squatting on the same
+# lan_ip:${FORWARD_PORT}. A bare lsof/curl check can't tell "our socat is
+# up" apart from "someone else's socat/service is up and happens to
+# forward somewhere that also answers HTTP" — which is exactly how a
+# stale foreign daemon on this same LAN IP:443 went undetected once
+# already (see CLAUDE.md).
+our_daemon_pid() {
+  sudo launchctl print "system/${PLIST_LABEL}" 2>/dev/null | awk -F'= ' '/^[[:space:]]*pid = /{print $2}'
+}
+
 verify_listening() {
   local lan_ip="$1"
   log "verifying the forwarder is listening on ${lan_ip}:${FORWARD_PORT}"
-  local elapsed=0 timeout=15
-  until lsof -nP -iTCP:"${FORWARD_PORT}" -sTCP:LISTEN 2>/dev/null | grep -q "${lan_ip}:${FORWARD_PORT}\|\\*:${FORWARD_PORT}"; do
+  local elapsed=0 timeout=15 our_pid listener_pid
+  our_pid="$(our_daemon_pid)"
+  [ -n "${our_pid}" ] || die "LaunchDaemon ${PLIST_LABEL} is not running (launchctl print reports no pid) — check ${FORWARDER_ERR_LOG}"
+
+  # sudo, not plain lsof: our socat runs as root (LaunchDaemons always
+  # do), and lsof run as this script's own non-root user has proven
+  # unreliable at seeing a root-owned process's listening socket on this
+  # setup — it can silently omit it while still showing other root-owned
+  # listeners, a false negative that would otherwise misattribute the
+  # port to whatever else IS visible (e.g. Docker's own wildcard *:443
+  # bind for an unrelated container). Matching only the exact
+  # lan_ip:port (never the "*:port" wildcard) is deliberate too: a
+  # wildcard listener (like Docker's) technically covers this address
+  # too, but it is never OUR socat (which always binds a specific
+  # address per write_plist above), so treating it as a match would hide
+  # exactly the kind of foreign-listener collision this check exists to
+  # catch.
+  until listener_pid="$(sudo lsof -nP -iTCP:"${FORWARD_PORT}" -sTCP:LISTEN 2>/dev/null | awk -v ip="${lan_ip}" -v port="${FORWARD_PORT}" '$9 == ip":"port {print $2; exit}')" && [ -n "${listener_pid}" ]; do
     if [ "${elapsed}" -ge "${timeout}" ]; then
       warn "could not confirm a listener on ${lan_ip}:${FORWARD_PORT} within ${timeout}s"
       warn "check ${FORWARDER_ERR_LOG} and: sudo launchctl print system/${PLIST_LABEL}"
@@ -154,7 +185,13 @@ verify_listening() {
     sleep 1
     elapsed=$((elapsed + 1))
   done
-  log "confirmed: socat listening on ${lan_ip}:${FORWARD_PORT}"
+
+  if [ "${listener_pid}" != "${our_pid}" ]; then
+    warn "a process is listening on ${lan_ip}:${FORWARD_PORT}, but its PID (${listener_pid}) doesn't match our LaunchDaemon ${PLIST_LABEL}'s own PID (${our_pid})"
+    warn "another daemon (a different LaunchDaemon, or a leftover from another repo) is squatting on this port — find it with: sudo lsof -nP -iTCP:${FORWARD_PORT} -sTCP:LISTEN"
+    die "forwarder verification failed: port is held by a different process than our own daemon"
+  fi
+  log "confirmed: socat (pid ${our_pid}) listening on ${lan_ip}:${FORWARD_PORT}"
 
   log "smoke-testing the forward with curl --resolve"
   if curl -s -o /dev/null -w '%{http_code}' --max-time 5 \

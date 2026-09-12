@@ -9,8 +9,14 @@ spec:
     repoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
     targetRevision: main
     path: gitops/apps
-    directory:
-      recurse: false
+    # No directory.recurse: false here — see the comment in
+    # gitops/apps/tekton-pipelines.yaml for why an explicit `false`
+    # (the field's own default) is worth avoiding: ArgoCD's own
+    # Application struct drops it on write (omitempty), which causes a
+    # permanent phantom diff for any PARENT Application that tracks this
+    # one. root-app itself isn't tracked by another parent today (it's
+    # applied directly by scripts/argocd-up.sh), so this is precautionary
+    # consistency, not a live bug here.
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
