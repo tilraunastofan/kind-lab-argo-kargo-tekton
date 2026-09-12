@@ -1,0 +1,29 @@
+# helm/event-generator/extras-dev/ingress.yaml
+#
+# dev's counterpart to helm/event-generator/extras/ingress.yaml — same
+# ACME ClusterIssuer, different namespace/hostname/Secret so it doesn't
+# collide with prod's.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: event-generator
+  namespace: demo-app-dev
+  annotations:
+    cert-manager.io/cluster-issuer: step-ca-acme
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - event-generator-dev.tekton-lab.test
+      secretName: event-generator-dev-tls
+  rules:
+    - host: event-generator-dev.tekton-lab.test
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: event-generator
+                port:
+                  number: 80

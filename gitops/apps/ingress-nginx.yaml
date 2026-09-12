@@ -1,0 +1,53 @@
+# gitops/apps/ingress-nginx.yaml
+#
+# Installs ingress-nginx (https://kubernetes.github.io/ingress-nginx) —
+# this lab's replacement for Cilium's Gateway API implementation. Plain
+# Ingress resources instead of Gateway API's Gateway/HTTPRoute objects,
+# on purpose: it fully decouples the CNI (kindnet, cluster/kind-config.yaml)
+# from the ingress/TLS layer again, and it's the more widely-known
+# building block for a lab whose point is demoing Tekton/ArgoCD/Kargo,
+# not ingress internals.
+#
+# Early sync-wave ("-2"), same tier as clickhouse-operator/tekton-pipelines
+# (gitops/apps/clickhouse-operator.yaml, gitops/apps/tekton-pipelines.yaml):
+# cert-manager's ClusterIssuer (helm/cluster-issuer) needs a working
+# `nginx` IngressClass to solve ACME HTTP-01 challenges through, and every
+# app below depends on the controller Pod being up to get a LoadBalancer
+# IP at all — bootstrap.sh's own wait_for (Step 5 below) blocks on it.
+#
+# targetRevision pinned to 4.15.1 (chart version, app version 1.15.1) —
+# the latest published release as of this repo's rewrite; the original
+# design doc's 4.11.3 is no longer available in the chart repo's index.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ingress-nginx
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  project: default
+  source:
+    repoURL: https://kubernetes.github.io/ingress-nginx
+    chart: ingress-nginx
+    targetRevision: 4.15.1
+    helm:
+      values: |
+        controller:
+          service:
+            type: LoadBalancer
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ingress-nginx
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m

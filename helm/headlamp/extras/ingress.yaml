@@ -1,0 +1,27 @@
+# helm/headlamp/extras/ingress.yaml
+#
+# Same shape as helm/argocd/extras/ingress.yaml.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: headlamp
+  namespace: headlamp
+  annotations:
+    cert-manager.io/cluster-issuer: step-ca-acme
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - headlamp.tekton-lab.test
+      secretName: headlamp-tls
+  rules:
+    - host: headlamp.tekton-lab.test
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: headlamp
+                port:
+                  number: 80

@@ -1,0 +1,35 @@
+# helm/argocd/extras/ingress.yaml
+#
+# Plain Kubernetes Ingress — replaces the old Gateway API HTTPRoute +
+# hand-authored Certificate pair. The cert-manager.io/cluster-issuer
+# annotation is cert-manager's "ingress-shim": it auto-creates a
+# Certificate matching this Ingress's spec.tls block (dnsNames +
+# secretName) on its own, so no separate Certificate manifest is needed
+# per app any more — a plain Ingress's TLS Secret lives in the same
+# namespace as the Ingress itself, unlike a Gateway's, which had to live
+# in the Gateway's own namespace (lab-gateway) regardless of which app it
+# belonged to.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd
+  namespace: argocd
+  annotations:
+    cert-manager.io/cluster-issuer: step-ca-acme
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - argocd.tekton-lab.test
+      secretName: argocd-tls
+  rules:
+    - host: argocd.tekton-lab.test
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 80

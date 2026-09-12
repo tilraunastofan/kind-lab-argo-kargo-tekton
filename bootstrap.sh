@@ -4,9 +4,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts"
 # shellcheck source=scripts/lib.sh
 source "${SCRIPT_DIR}/lib.sh"
 
-gateway_has_ip() {
+ingress_has_ip() {
   local ip
-  ip=$(kubectl -n lab-gateway get svc -o jsonpath='{range .items[?(@.spec.type=="LoadBalancer")]}{.status.loadBalancer.ingress[0].ip}{end}' 2>/dev/null)
+  ip=$(kubectl -n ingress-nginx get svc ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null)
   [ -n "${ip}" ]
 }
 
@@ -16,7 +16,6 @@ main() {
   "${SCRIPT_DIR}/stepca-bootstrap.sh"
   "${SCRIPT_DIR}/cloudprovider-bootstrap.sh"
   "${SCRIPT_DIR}/cluster-up.sh"
-  "${SCRIPT_DIR}/cilium-up.sh"
   # The three kargo-*-up.sh scripts run here, BEFORE argocd-up.sh, and
   # deliberately NOT grouped with datadog-secret-up.sh/registry-secret-up.sh
   # below (which only need kubectl too, but are harmless to run either side
@@ -74,14 +73,14 @@ main() {
   "${SCRIPT_DIR}/pac-forgejo-trust-up.sh"
   "${SCRIPT_DIR}/pac-ca-trust-up.sh"
 
-  wait_for "lab-gateway has a LoadBalancer IP" 60 gateway_has_ip
+  wait_for "ingress-nginx-controller has a LoadBalancer IP" 60 ingress_has_ip
 
   "${SCRIPT_DIR}/issuer-up.sh"
   "${SCRIPT_DIR}/dns-bootstrap.sh"
   "${SCRIPT_DIR}/pac-config-up.sh"
   "${SCRIPT_DIR}/smoke-test.sh"
 
-  log "kind-lab bootstrap complete"
+  log "tekton-lab bootstrap complete"
 }
 
 main "$@"
