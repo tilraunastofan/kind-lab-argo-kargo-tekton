@@ -17,7 +17,7 @@ source "${SCRIPT_DIR}/lib.sh"
 # almost exactly — same idempotency reasoning, same gh CLI calls — just a
 # different key path/title and --allow-write on registration.
 
-DEPLOY_KEY_PATH="${HOME}/.ssh/kind-lab-kargo"
+DEPLOY_KEY_PATH="${HOME}/.ssh/kind-lab-argo-kargo-tekton-kargo"
 REPO_SLUG="tilraunastofan/kind-lab-argo-kargo-tekton"
 
 ensure_deploy_key() {
@@ -26,7 +26,7 @@ ensure_deploy_key() {
     return 0
   fi
   log "generating kargo deploy key at ${DEPLOY_KEY_PATH}"
-  ssh-keygen -t ed25519 -N "" -C "kind-lab-kargo" -f "${DEPLOY_KEY_PATH}" >/dev/null
+  ssh-keygen -t ed25519 -N "" -C "kind-lab-argo-kargo-tekton-kargo" -f "${DEPLOY_KEY_PATH}" >/dev/null
 }
 
 local_deploy_key_fingerprint() {
@@ -35,7 +35,7 @@ local_deploy_key_fingerprint() {
 
 deploy_key_title_ids() {
   gh api "repos/${REPO_SLUG}/keys" --paginate \
-    --jq '.[] | select(.title == "kind-lab-kargo") | .id' 2>/dev/null
+    --jq '.[] | select(.title == "kind-lab-argo-kargo-tekton-kargo") | .id' 2>/dev/null
 }
 
 deploy_key_registered() {
@@ -57,11 +57,11 @@ register_deploy_key() {
   local stale_id
   while IFS= read -r stale_id; do
     [ -z "${stale_id}" ] && continue
-    warn "stale deploy key titled kind-lab-kargo on ${REPO_SLUG} doesn't match local key at ${DEPLOY_KEY_PATH}, deleting id ${stale_id}"
+    warn "stale deploy key titled kind-lab-argo-kargo-tekton-kargo on ${REPO_SLUG} doesn't match local key at ${DEPLOY_KEY_PATH}, deleting id ${stale_id}"
     gh repo deploy-key delete "${stale_id}" --repo "${REPO_SLUG}"
   done < <(deploy_key_title_ids)
   log "registering WRITE-enabled deploy key on ${REPO_SLUG}"
-  gh repo deploy-key add "${DEPLOY_KEY_PATH}.pub" --repo "${REPO_SLUG}" --title kind-lab-kargo --allow-write
+  gh repo deploy-key add "${DEPLOY_KEY_PATH}.pub" --repo "${REPO_SLUG}" --title kind-lab-argo-kargo-tekton-kargo --allow-write
 }
 
 main() {

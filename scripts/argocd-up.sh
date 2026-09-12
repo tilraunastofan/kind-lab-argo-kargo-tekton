@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib.sh"
 
 ARGOCD_CHART_VERSION="10.4.0"
-DEPLOY_KEY_PATH="${HOME}/.ssh/kind-lab-argocd-deploy"
+DEPLOY_KEY_PATH="${HOME}/.ssh/kind-lab-argo-kargo-tekton-argocd-deploy"
 REPO_SSH_URL="git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git"
 REPO_SLUG="tilraunastofan/kind-lab-argo-kargo-tekton"
 
@@ -27,7 +27,7 @@ ensure_deploy_key() {
     return 0
   fi
   log "generating deploy key at ${DEPLOY_KEY_PATH}"
-  ssh-keygen -t ed25519 -N "" -C "kind-lab-argocd" -f "${DEPLOY_KEY_PATH}" >/dev/null
+  ssh-keygen -t ed25519 -N "" -C "kind-lab-argo-kargo-tekton-argocd" -f "${DEPLOY_KEY_PATH}" >/dev/null
 }
 
 local_deploy_key_fingerprint() {
@@ -53,7 +53,7 @@ deploy_key_registered() {
 
 deploy_key_title_ids() {
   gh repo deploy-key list --repo "${REPO_SLUG}" --json id,title \
-    --jq '.[] | select(.title == "kind-lab-argocd") | .id' 2>/dev/null
+    --jq '.[] | select(.title == "kind-lab-argo-kargo-tekton-argocd") | .id' 2>/dev/null
 }
 
 register_deploy_key() {
@@ -64,12 +64,12 @@ register_deploy_key() {
   local stale_id
   while IFS= read -r stale_id; do
     [ -z "${stale_id}" ] && continue
-    warn "stale deploy key titled kind-lab-argocd on ${REPO_SLUG} doesn't match local key at ${DEPLOY_KEY_PATH}, deleting id ${stale_id}"
+    warn "stale deploy key titled kind-lab-argo-kargo-tekton-argocd on ${REPO_SLUG} doesn't match local key at ${DEPLOY_KEY_PATH}, deleting id ${stale_id}"
     gh repo deploy-key delete "${stale_id}" --repo "${REPO_SLUG}"
   done < <(deploy_key_title_ids)
   log "registering read-only deploy key on ${REPO_SLUG}"
   # gh deploy keys are read-only by default (write access is opt-in via -w/--allow-write)
-  gh repo deploy-key add "${DEPLOY_KEY_PATH}.pub" --repo "${REPO_SLUG}" --title kind-lab-argocd
+  gh repo deploy-key add "${DEPLOY_KEY_PATH}.pub" --repo "${REPO_SLUG}" --title kind-lab-argo-kargo-tekton-argocd
 }
 
 apply_repo_creds() {
