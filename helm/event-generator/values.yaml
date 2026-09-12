@@ -12,7 +12,7 @@ namespace: demo-app
 
 image:
   repository: ghcr.io/tilraunastofan/kind-lab-argo-kargo-tekton/event-generator
-  tag: "774b747" # set by a human today, by Kargo in sub-project 3b
+  tag: "8cb96af" # set by a human today, by Kargo in sub-project 3b
 
 # The Kubernetes Service DNS name for Clickhouse, in the cluster-internal
 # form <service-name>.<namespace>.svc.cluster.local:<port>. CoreDNS (the
