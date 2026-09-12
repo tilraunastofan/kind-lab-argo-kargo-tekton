@@ -29,8 +29,16 @@ spec:
     repoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
     targetRevision: main
     path: vendor/tekton-pipelines
-    directory:
-      recurse: false
+    # No `directory.recurse: false` here — it's already the field's
+    # default, and writing it out explicitly caused a permanent phantom
+    # diff: the parent root-app Application diffs THIS Application's own
+    # YAML against what's live, but ArgoCD's own internal Application
+    # struct tags this field `omitempty`, so a live, applied Application
+    # object silently drops an explicit `false` on write. Git then always
+    # says `recurse: false`, live never has the key, and root-app never
+    # reaches Synced. Omitting the redundant explicit `false` (same
+    # runtime behavior — non-recursive is still the default) removes the
+    # phantom diff entirely.
   destination:
     server: https://kubernetes.default.svc
     namespace: tekton-pipelines

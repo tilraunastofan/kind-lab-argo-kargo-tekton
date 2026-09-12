@@ -16,8 +16,6 @@ spec:
     repoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
     targetRevision: main
     path: vendor/pipelines-as-code
-    directory:
-      recurse: false
   destination:
     server: https://kubernetes.default.svc
     namespace: pipelines-as-code
