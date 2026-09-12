@@ -41,7 +41,7 @@ source "${SCRIPT_DIR}/lib.sh"
 
 PAC_HOSTNAME="pipelines-as-code.tekton-lab.test"
 FORWARD_PORT="443"
-PLIST_LABEL="com.kind-lab.pac-lan-forward"
+PLIST_LABEL="com.kind-lab-argo-kargo-tekton.pac-lan-forward"
 PLIST_PATH="/Library/LaunchDaemons/${PLIST_LABEL}.plist"
 FORWARDER_OUT_LOG="/var/log/${PLIST_LABEL}.out.log"
 FORWARDER_ERR_LOG="/var/log/${PLIST_LABEL}.err.log"
