@@ -12,7 +12,7 @@ source "${SCRIPT_DIR}/lib.sh"
 # Why this exists: cloud-provider-kind's assigned LoadBalancer IP (see
 # `kubectl -n ingress-nginx get svc`) is bound to this Mac's loopback
 # interface (lo0), so *.tekton-lab.test only resolves/routes correctly for
-# processes running ON this Mac (via the /etc/resolver/lab.test entry).
+# processes running ON this Mac (via the /etc/resolver/tekton-lab.test entry).
 # Anything elsewhere on the LAN — e.g. a self-hosted Forgejo instance on a
 # Raspberry Pi delivering webhooks to https://pipelines-as-code.tekton-lab.test —
 # can't reach it at all. This forwarder, plus a DNS/hosts override on the

@@ -11,7 +11,7 @@ metadata:
 data:
   dnsmasq.conf: |
     no-resolv
-    address=/lab.test/{{ .Values.gatewayIP }}
+    address=/tekton-lab.test/{{ .Values.gatewayIP }}
 ---
 apiVersion: apps/v1
 kind: Deployment
