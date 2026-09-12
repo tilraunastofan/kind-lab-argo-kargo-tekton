@@ -18,7 +18,7 @@ source "${SCRIPT_DIR}/lib.sh"
 # different key path/title and --allow-write on registration.
 
 DEPLOY_KEY_PATH="${HOME}/.ssh/kind-lab-kargo"
-REPO_SLUG="tilraunastofan/kind-lab"
+REPO_SLUG="tilraunastofan/kind-lab-argo-kargo-tekton"
 
 ensure_deploy_key() {
   if [ -f "${DEPLOY_KEY_PATH}" ]; then

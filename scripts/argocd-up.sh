@@ -7,7 +7,7 @@ source "${SCRIPT_DIR}/lib.sh"
 ARGOCD_CHART_VERSION="10.4.0"
 DEPLOY_KEY_PATH="${HOME}/.ssh/kind-lab-argocd-deploy"
 REPO_SSH_URL="git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git"
-REPO_SLUG="tilraunastofan/kind-lab"
+REPO_SLUG="tilraunastofan/kind-lab-argo-kargo-tekton"
 
 install_argocd() {
   log "installing ArgoCD ${ARGOCD_CHART_VERSION}"
