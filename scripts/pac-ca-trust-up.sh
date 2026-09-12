@@ -51,8 +51,15 @@ main() {
 
   tmpdir="$(mktemp -d)"
 
+  # `docker cp <container>:<path> -` writes a TAR STREAM to stdout, not
+  # the raw file bytes (that's `docker cp`'s documented behavior whenever
+  # the destination is `-`) — piping straight into a file produces a tar
+  # header + padding wrapped around the real content, which Go's
+  # crypto/x509 (and any strict PEM parser) silently fails to parse as
+  # certificates. `tar -xO` un-wraps a single-file tar stream back to its
+  # raw bytes on stdout without ever touching disk.
   log "fetching base CA bundle from the Forgejo container (already includes the step-ca root)"
-  ssh "${FORGEJO_HOST_SSH}" "docker cp forgejo:/etc/ssl/certs/ca-certificates.crt -" > "${tmpdir}/base.crt" \
+  ssh "${FORGEJO_HOST_SSH}" "docker cp forgejo:/etc/ssl/certs/ca-certificates.crt -" | tar -xO > "${tmpdir}/base.crt" \
     || die "could not fetch /etc/ssl/certs/ca-certificates.crt from the forgejo container on ${FORGEJO_HOST_SSH} — run scripts/pac-forgejo-trust-up.sh first"
 
   log "fetching Caddy's local root CA from ${FORGEJO_HOST_SSH}"
