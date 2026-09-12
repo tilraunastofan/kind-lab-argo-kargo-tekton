@@ -1,8 +1,15 @@
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
-name: kind-lab
+name: tekton-lab
 networking:
-  disableDefaultCNI: true
+  # No disableDefaultCNI here (unlike the Cilium-based kind-lab): kind's
+  # bundled kindnet CNI handles pod networking on its own. Cilium's real
+  # job in this repo was never "better pod networking" — it was doubling
+  # as the Gateway API ingress implementation (see gitops/apps/ingress-nginx.yaml
+  # and helm/cluster-issuer for its plain-Ingress replacement). Dropping
+  # it here removes an entire pre-ArgoCD bootstrap step and a CNI-version-
+  # vs-Gateway-API-CRD-schema pinning problem this lab doesn't need to
+  # demo Tekton/ArgoCD/Kargo.
   podSubnet: "10.244.0.0/16"
 nodes:
   - role: control-plane

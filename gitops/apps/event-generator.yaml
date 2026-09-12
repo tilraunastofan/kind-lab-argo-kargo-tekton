@@ -26,12 +26,12 @@ spec:
   # (helm/event-generator, with its Chart.yaml/templates/values.yaml); the
   # second is a plain "directory" source with no Helm involved at all — it
   # just applies every *.yaml file under helm/event-generator/extras/
-  # (the Certificate and HTTPRoute) as raw Kubernetes manifests. Splitting
-  # them this way lets the Certificate live in the lab-gateway namespace
-  # while the Helm-templated Deployment/Service live in demo-app — a Helm
-  # release can only target one destination namespace, but a second
-  # "directory" source has no such restriction since it isn't a Helm
-  # release at all.
+  # (the Ingress; cert-manager's ingress-shim auto-creates its Certificate)
+  # as a raw Kubernetes manifest. Splitting them this way keeps the
+  # networking manifest independently editable from the Helm-templated
+  # Deployment/Service — a Helm release can only target one destination
+  # namespace, but a second "directory" source has no such restriction
+  # since it isn't a Helm release at all.
   sources:
     - repoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
       targetRevision: main

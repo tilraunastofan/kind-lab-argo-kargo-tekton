@@ -2,7 +2,7 @@ version: "3"
 
 tasks:
   cluster:up:
-    desc: Bootstrap the full kind-lab cluster (step-ca, cloud-provider-kind, kind, Cilium, cert-manager, DNS, smoke test)
+    desc: Bootstrap the full tekton-lab cluster (step-ca, cloud-provider-kind, kind, ingress-nginx, cert-manager, DNS, smoke test)
     cmds:
       - ./bootstrap.sh
 

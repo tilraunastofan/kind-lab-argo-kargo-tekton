@@ -9,9 +9,13 @@ spec:
     privateKeySecretRef:
       name: step-ca-acme-account-key
     solvers:
+      # http01.ingress (not gatewayHTTPRoute): cert-manager creates a
+      # temporary solver Ingress in the challenged app's own namespace,
+      # using this ingressClassName, instead of a Gateway HTTPRoute
+      # against a shared Gateway. Simpler and avoids the old Cilium
+      # Gateway API hostname-isolation bug workaround entirely (see the
+      # deleted helm/gateway/templates/gateway.yaml's comment for what
+      # that used to require).
       - http01:
-          gatewayHTTPRoute:
-            parentRefs:
-              - name: lab-gateway
-                namespace: lab-gateway
-                kind: Gateway
+          ingress:
+            ingressClassName: nginx

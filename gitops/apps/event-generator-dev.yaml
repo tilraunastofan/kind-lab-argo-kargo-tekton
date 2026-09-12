@@ -2,8 +2,8 @@
 #
 # "dev" — mirrors gitops/apps/event-generator.yaml exactly (same
 # two-source shape: the Helm chart itself, plus a directory source for
-# the raw Certificate/HTTPRoute manifests) except it points at
-# values-dev.yaml and the demo-app-dev namespace/extras-dev directory.
+# the raw Ingress manifest) except it points at values-dev.yaml and the
+# demo-app-dev namespace/extras-dev directory.
 # Sub-project 3b's Kargo Stage (Task 5) is what actually bumps this
 # Application's image tag going forward — see helm/kargo-project.
 apiVersion: argoproj.io/v1alpha1

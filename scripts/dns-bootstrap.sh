@@ -6,8 +6,8 @@ source "${SCRIPT_DIR}/lib.sh"
 
 RESOLVER_FILE="/etc/resolver/${LAB_DOMAIN}"
 
-gateway_ip() {
-  kubectl -n lab-gateway get svc -o jsonpath='{range .items[?(@.spec.type=="LoadBalancer")]}{.status.loadBalancer.ingress[0].ip}{end}'
+ingress_ip() {
+  kubectl -n ingress-nginx get svc ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
 }
 
 node_ip() {
@@ -40,8 +40,8 @@ main() {
   require_cmd kubectl envsubst sudo shasum
 
   local gw_ip
-  gw_ip=$(gateway_ip)
-  [ -n "${gw_ip}" ] || die "lab-gateway has no LoadBalancer IP yet — run cluster-up/cilium-up/argocd-up first"
+  gw_ip=$(ingress_ip)
+  [ -n "${gw_ip}" ] || die "ingress-nginx-controller has no LoadBalancer IP yet — run cluster-up/argocd-up first"
 
   local checksum
   checksum=$(config_checksum "${gw_ip}")

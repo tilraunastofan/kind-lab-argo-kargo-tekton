@@ -8,18 +8,14 @@ main() {
   require_cmd kubectl
   echo "--- Nodes ---"
   kubectl get nodes
-  echo "--- Cilium ---"
-  kubectl -n kube-system get pods -l k8s-app=cilium
-  echo "--- GatewayClass ---"
-  kubectl get gatewayclass
   echo "--- ArgoCD ---"
   kubectl -n argocd get pods
   echo "--- ArgoCD Applications ---"
   kubectl -n argocd get applications
   echo "--- cert-manager ---"
   kubectl -n cert-manager get pods
-  echo "--- lab-gateway ---"
-  kubectl -n lab-gateway get gateway,svc
+  echo "--- ingress-nginx ---"
+  kubectl -n ingress-nginx get pods,svc,ingressclass
   echo "--- dnsmasq ---"
   kubectl -n dns-utils get pods,svc
   echo "--- ClusterIssuer ---"

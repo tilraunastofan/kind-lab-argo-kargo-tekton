@@ -1,0 +1,30 @@
+# helm/pipelines-as-code-config/templates/ingress.yaml
+#
+# Routes pipelines-as-code.tekton-lab.test to PAC's controller Service
+# (installed by vendor/pipelines-as-code/release.yaml) — port 8080, the
+# Service's own "http-listener" port. Same ingress-shim pattern as every
+# other app in this repo (see helm/argocd/extras/ingress.yaml).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pipelines-as-code
+  namespace: pipelines-as-code
+  annotations:
+    cert-manager.io/cluster-issuer: step-ca-acme
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - pipelines-as-code.tekton-lab.test
+      secretName: pipelines-as-code-tls
+  rules:
+    - host: pipelines-as-code.tekton-lab.test
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pipelines-as-code-controller
+                port:
+                  number: 8080

@@ -36,19 +36,27 @@ spec:
     - port: 80
       targetPort: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
   name: smoke-nginx
   namespace: smoke-test
+  annotations:
+    cert-manager.io/cluster-issuer: step-ca-acme
 spec:
-  parentRefs:
-    - name: lab-gateway
-      namespace: lab-gateway
-      sectionName: https-smoke
-  hostnames:
-    - smoke.tekton-lab.test
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - smoke.tekton-lab.test
+      secretName: smoke-tls
   rules:
-    - backendRefs:
-        - name: smoke-nginx
-          port: 80
+    - host: smoke.tekton-lab.test
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: smoke-nginx
+                port:
+                  number: 80

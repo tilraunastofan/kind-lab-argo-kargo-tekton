@@ -1,0 +1,28 @@
+# helm/event-generator/extras/ingress.yaml
+#
+# Same shape as helm/argocd/extras/ingress.yaml — see that file's comment
+# for why there's no separate Certificate manifest any more.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: event-generator
+  namespace: demo-app
+  annotations:
+    cert-manager.io/cluster-issuer: step-ca-acme
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - event-generator.tekton-lab.test
+      secretName: event-generator-tls
+  rules:
+    - host: event-generator.tekton-lab.test
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: event-generator
+                port:
+                  number: 80
