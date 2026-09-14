@@ -6,8 +6,18 @@ source "${SCRIPT_DIR}/lib.sh"
 
 RESOLVER_FILE="/etc/resolver/${LAB_DOMAIN}"
 
+# ingress_ip: the address *.${LAB_DOMAIN} should resolve to. ingress-nginx
+# no longer requests a cloud LoadBalancer IP (see cluster/kind-config.yaml
+# and gitops/apps/ingress-nginx.yaml) — it binds host ports 80/443 directly
+# via kind's own extraPortMappings/hostPort mechanism, which by default
+# listens on every interface (0.0.0.0), not just loopback. So the address
+# that actually reaches it is simply this Mac's own LAN IP: correct for
+# browsers on this Mac, and for other LAN devices (e.g. the Raspberry Pi
+# running Forgejo) too, with no separate forwarder needed.
 ingress_ip() {
-  kubectl -n ingress-nginx get svc ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+  route get 1.1.1.1 2>/dev/null | awk '/interface: /{print $2}' | while read -r iface; do
+    ipconfig getifaddr "${iface}" 2>/dev/null
+  done
 }
 
 node_ip() {
@@ -41,7 +51,7 @@ main() {
 
   local gw_ip
   gw_ip=$(ingress_ip)
-  [ -n "${gw_ip}" ] || die "ingress-nginx-controller has no LoadBalancer IP yet — run cluster-up/argocd-up first"
+  [ -n "${gw_ip}" ] || die "could not determine this Mac's LAN IP (route get 1.1.1.1 / ipconfig getifaddr) — check network connectivity"
 
   local checksum
   checksum=$(config_checksum "${gw_ip}")

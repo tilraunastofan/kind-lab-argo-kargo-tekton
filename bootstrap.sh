@@ -4,17 +4,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts"
 # shellcheck source=scripts/lib.sh
 source "${SCRIPT_DIR}/lib.sh"
 
-ingress_has_ip() {
-  local ip
-  ip=$(kubectl -n ingress-nginx get svc ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null)
-  [ -n "${ip}" ]
-}
-
 main() {
-  require_cmd kind helm kubectl docker step step-ca go curl openssl security launchctl scutil envsubst ssh-keygen gh htpasswd
+  require_cmd kind helm kubectl docker step step-ca curl openssl security scutil envsubst ssh-keygen gh htpasswd
 
   "${SCRIPT_DIR}/stepca-bootstrap.sh"
-  "${SCRIPT_DIR}/cloudprovider-bootstrap.sh"
   "${SCRIPT_DIR}/cluster-up.sh"
   # The three kargo-*-up.sh scripts run here, BEFORE argocd-up.sh, and
   # deliberately NOT grouped with datadog-secret-up.sh/registry-secret-up.sh
@@ -73,7 +66,7 @@ main() {
   "${SCRIPT_DIR}/pac-forgejo-trust-up.sh"
   "${SCRIPT_DIR}/pac-ca-trust-up.sh"
 
-  wait_for "ingress-nginx-controller has a LoadBalancer IP" 60 ingress_has_ip
+  kubectl -n ingress-nginx rollout status deployment/ingress-nginx-controller --timeout=90s
 
   "${SCRIPT_DIR}/issuer-up.sh"
   "${SCRIPT_DIR}/dns-bootstrap.sh"

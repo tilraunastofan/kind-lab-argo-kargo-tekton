@@ -13,5 +13,29 @@ networking:
   podSubnet: "10.244.0.0/16"
 nodes:
   - role: control-plane
+    # extraPortMappings + the ingress-ready label below are kind's own
+    # documented, plugin-free way to expose an Ingress controller
+    # (https://kind.sigs.k8s.io/docs/user/ingress/): map the host's real
+    # 80/443 straight to this node, and run ingress-nginx pinned to this
+    # node via nodeSelector/toleration with `hostPort` instead of asking
+    # for a cloud LoadBalancer IP that plain kind has no way to satisfy on
+    # its own (see gitops/apps/ingress-nginx.yaml). This replaces
+    # cloud-provider-kind entirely — no host-level daemon required, and
+    # every app-facing manifest (Ingress objects, cert-manager's ACME
+    # HTTP-01 solver) is unchanged, since they only ever assumed "an
+    # `nginx` IngressClass exists", true on any real cluster too.
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP
   - role: worker
   - role: worker

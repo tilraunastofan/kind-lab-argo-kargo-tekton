@@ -19,9 +19,11 @@ MAC_LAN_IP_CACHE=""
 #      cert. Lost on container recreation (lives in the container's own
 #      filesystem, not its data volume) — safe to re-run any time.
 #   2. Add a /etc/hosts entry inside the Forgejo container resolving
-#      pipelines-as-code.tekton-lab.test to this Mac's real LAN IP — mirrors the
-#      DNS override scripts/pac-lan-forward-up.sh's design already assumes
-#      is in place on the Forgejo side. Also lost on container recreation.
+#      pipelines-as-code.tekton-lab.test to this Mac's real LAN IP. Reachable
+#      directly: kind's own port-mapping (cluster/kind-config.yaml) binds
+#      ingress-nginx's host ports 80/443 to every interface on this Mac,
+#      not just loopback, so no separate forwarder is needed for LAN
+#      devices like this one. Also lost on container recreation.
 #   3. Ensure app.ini's [webhook] ALLOWED_HOST_LIST includes this LAN's
 #      subnet and the hostname — Forgejo's own SSRF-protection webhook
 #      target validator otherwise silently drops (not even logs as

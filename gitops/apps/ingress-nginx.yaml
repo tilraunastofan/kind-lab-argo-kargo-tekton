@@ -12,8 +12,19 @@
 # (gitops/apps/clickhouse-operator.yaml, gitops/apps/tekton-pipelines.yaml):
 # cert-manager's ClusterIssuer (helm/cluster-issuer) needs a working
 # `nginx` IngressClass to solve ACME HTTP-01 challenges through, and every
-# app below depends on the controller Pod being up to get a LoadBalancer
-# IP at all — bootstrap.sh's own wait_for (Step 5 below) blocks on it.
+# app below depends on the controller Pod being up — bootstrap.sh's own
+# wait_for blocks on its Deployment rollout.
+#
+# hostPort + nodeSelector/toleration (instead of `service.type:
+# LoadBalancer`) is kind's own documented plugin-free ingress pattern
+# (https://kind.sigs.k8s.io/docs/user/ingress/): the controller Pod is
+# pinned to the control-plane node (the one carrying the `ingress-ready`
+# label and the extraPortMappings in cluster/kind-config.yaml) and binds
+# host ports 80/443 directly, so no cloud LoadBalancer implementation —
+# and no host-level daemon like cloud-provider-kind — is needed at all.
+# This also means this same values block is portable to a real cluster
+# later without changes: a LoadBalancer-capable cluster can simply
+# override `controller.service.type` back to `LoadBalancer` there.
 #
 # targetRevision pinned to 4.15.1 (chart version, app version 1.15.1) —
 # the latest published release as of this repo's rewrite; the original
@@ -34,8 +45,16 @@ spec:
     helm:
       values: |
         controller:
+          hostPort:
+            enabled: true
           service:
-            type: LoadBalancer
+            type: NodePort
+          nodeSelector:
+            ingress-ready: "true"
+          tolerations:
+            - key: node-role.kubernetes.io/control-plane
+              operator: Equal
+              effect: NoSchedule
   destination:
     server: https://kubernetes.default.svc
     namespace: ingress-nginx

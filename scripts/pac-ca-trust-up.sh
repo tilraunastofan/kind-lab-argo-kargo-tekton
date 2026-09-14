@@ -12,8 +12,8 @@ FORGEJO_HOST_SSH="cm4.local"
 # vendor/pipelines-as-code/release.yaml). Both components call back into
 # the Forgejo API (fetch .tekton/*.yaml, post commit statuses), and their
 # minimal container images have no OS trust store to extend the way
-# scripts/pac-lan-forward-up.sh's target — the Forgejo container itself —
-# does via update-ca-certificates.
+# the Forgejo container itself does via update-ca-certificates (see
+# scripts/pac-forgejo-trust-up.sh).
 #
 # Two custom CAs need to be trusted, discovered live during Task 6's
 # end-to-end verification (kind-lab-pac-poc- PipelineRun and its watcher
@@ -36,9 +36,9 @@ FORGEJO_HOST_SSH="cm4.local"
 # SSL_CERT_FILE's contents when it's set, it doesn't merge with a
 # (nonexistent) system default. The Forgejo container's own
 # /etc/ssl/certs/ca-certificates.crt (a full Debian-style bundle, already
-# extended with the step-ca root by scripts/pac-lan-forward-up.sh's
-# sibling fix) is reused as that base, fetched fresh each run so it stays
-# in sync with whatever's actually trusted there.
+# extended with the step-ca root by scripts/pac-forgejo-trust-up.sh) is
+# reused as that base, fetched fresh each run so it stays in sync with
+# whatever's actually trusted there.
 
 tmpdir=""
 cleanup() {

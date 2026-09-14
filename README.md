@@ -22,7 +22,7 @@ need some traffic generated in the cluster from our demo app(s) to the in-cluste
 
 #### Cluster GitOps
 
-- ArgoCD for GitOps, from this repository. ArgoCD uses App-of-Apps to maintain all charts and apps - <https://argo-cd.readthedocs.io/en/stable/>. `task cluster:up` installs ArgoCD as part of bootstrap; cert-manager, ingress-nginx, and the smoke-test app are ArgoCD-managed `Application` resources declared statically under `gitops/apps/` in this repo. The step-ca ACME `ClusterIssuer` and dnsmasq are also ArgoCD-managed, but their `Application` manifests are rendered at bootstrap time from templates under `gitops/apps-templates/` (they need host-specific values — the Mac's hostname/step-ca port, and the cluster's dynamically-assigned ingress-nginx LoadBalancer IP — that can't live in a static Git file) and applied directly by `scripts/issuer-up.sh`/`scripts/dns-bootstrap.sh`. `gitops/apps/` and `gitops/apps-templates/` together are the source of truth for what ArgoCD deploys. ArgoCD's own UI is reachable at `https://argocd.tekton-lab.test` over a trusted cert, same as everything else in the lab.
+- ArgoCD for GitOps, from this repository. ArgoCD uses App-of-Apps to maintain all charts and apps - <https://argo-cd.readthedocs.io/en/stable/>. `task cluster:up` installs ArgoCD as part of bootstrap; cert-manager, ingress-nginx, and the smoke-test app are ArgoCD-managed `Application` resources declared statically under `gitops/apps/` in this repo. The step-ca ACME `ClusterIssuer` and dnsmasq are also ArgoCD-managed, but their `Application` manifests are rendered at bootstrap time from templates under `gitops/apps-templates/` (they need host-specific values — the Mac's hostname/step-ca port, and this Mac's LAN IP, the address ingress-nginx's host-mapped ports 80/443 actually answer on — that can't live in a static Git file) and applied directly by `scripts/issuer-up.sh`/`scripts/dns-bootstrap.sh`. `gitops/apps/` and `gitops/apps-templates/` together are the source of truth for what ArgoCD deploys. ArgoCD's own UI is reachable at `https://argocd.tekton-lab.test` over a trusted cert, same as everything else in the lab.
 
 - **CI (proof-of-concept)**: Tekton Pipelines + Pipelines-as-Code, triggered by a `git push` to the Forgejo pull-mirror of this repo at `https://git.local` (not GitHub — GitHub Actions is unaffected). What's demoed: pushing a commit to this repo's GitHub `main` branch, Forgejo periodically pulling that commit into its own mirror, then Pipelines-as-Code's webhook-driven discovery matching it against `.tekton/pipelinerun.yaml` and running the pipeline with no manual trigger. Minimal scope: one PAC-discovered pipeline. See CLAUDE.md's Project status for the full story, including the environmental bugs it surfaced and how they were fixed.
 
@@ -75,17 +75,16 @@ its env var is unset.
 
 ### Task targets
 
-- `task cluster:up` — bootstrap the full lab cluster (step-ca, cloud-provider-kind, kind, ArgoCD/GitOps, ingress-nginx, cert-manager, DNS, smoke test).
+- `task cluster:up` — bootstrap the full lab cluster (step-ca, kind, ArgoCD/GitOps, ingress-nginx, cert-manager, DNS, smoke test).
 - `task cluster:down` — tear down the lab cluster.
 - `task cluster:status` — quick health check of the cluster.
 - `task smoke:test` — re-run just the smoke-test verification.
 
 ### First-run interactive steps
 
-On a fresh workstation, `task cluster:up` may stop partway through and print a one-time `sudo` command to run yourself, then exit non-zero — this happens for two steps that need elevated privileges the script itself shouldn't have:
+On a fresh workstation, `task cluster:up` may stop partway through and print a one-time `sudo` command to run yourself, then exit non-zero — this happens for the one step that needs elevated privileges the script itself shouldn't have:
 
 - trusting the `step ca` root certificate in the macOS System keychain
-- installing the `cloud-provider-kind` LaunchDaemon
 
 Run the printed command, then just re-run `task cluster:up` — it picks up where it left off.
 
@@ -95,6 +94,6 @@ The GitOps source repo is `https://github.com/tilraunastofan/kind-lab-argo-kargo
 
 ### Troubleshooting
 
-- If `cloud-provider-kind`'s LoadBalancer IPs stop responding (Services stuck `<pending>`, e.g. after the Docker runtime restarts), try `sudo launchctl kickstart -k system/com.kind.cloud-provider-kind`, then re-run `task cluster:up`.
+- If `https://*.tekton-lab.test` stops resolving or connecting after this Mac's IP changes (e.g. switching Wi-Fi networks), re-run `scripts/dns-bootstrap.sh` — it looks up this Mac's current LAN IP fresh every run and re-points dnsmasq at it.
 - If `scripts/argocd-up.sh` times out waiting for ArgoCD Applications to become `Healthy`, check `kubectl -n argocd get applications` for the stuck one, then `kubectl -n argocd get application <name> -o yaml` for its `status.conditions` — the most common first-bootstrap cause is ArgoCD's initial sync racing an existing (script-created) Helm release's ownership metadata; re-applying that one Application's manifest after the first sync usually resolves it (`gitops/apps/<name>.yaml` for the statically-declared ones, or re-running the relevant bootstrap script — `scripts/issuer-up.sh`/`scripts/dns-bootstrap.sh` — for the templated ones).
 - If `clickhouse-operator`'s Application fails to sync on a genuinely cold cluster with `metadata.annotations: Too long: may not be more than 262144 bytes` on the `clickhouseclusters.clickhouse.com` CRD, this is the ClickHouseCluster CRD's huge schema colliding with annotation-based resource tracking: even with `ServerSideApply=true` set (`gitops/apps/clickhouse-operator.yaml`), based on what we observed during manual recovery, this predicts client-side apply is still used for a CRD's very first creation (only patches to an already-existing object go through real server-side apply), so the oversized `kubectl.kubernetes.io/last-applied-configuration` annotation it writes on that first create still blows the cap — this hasn't been re-verified on a subsequent from-scratch rebuild with the fix already in place; if a future cold rebuild does NOT hit this, this note is stale and can be removed. Work around it once per cold cluster with `helm template oci://ghcr.io/clickhouse/clickhouse-operator-helm --version 0.0.7 --show-only templates/crd/clickhouseclusters.clickhouse.com.yaml | kubectl apply --server-side -f -`, then let ArgoCD's next sync (or a `kubectl -n argocd annotate application clickhouse-operator argocd.argoproj.io/refresh=hard --overwrite`) patch cleanly on top of it.
