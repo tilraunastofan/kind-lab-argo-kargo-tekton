@@ -1,8 +1,13 @@
+# helm/cert-manager/values.yaml
+#
+# Gateway API support (ExperimentalGatewayAPISupport / --enable-gateway-api)
+# is deliberately NOT enabled here: this repo's ClusterIssuer solves ACME
+# HTTP-01 through a plain ingress-nginx Ingress (see helm/cluster-issuer),
+# not a Gateway API HTTPRoute — see "Open decisions" in CLAUDE.md/README.md.
+# Enabling it requires the Gateway API CRDs to already exist in the cluster,
+# which this repo's manifests never install; on a plain `kind` cluster with
+# no other plugin providing them (see the cloud-provider-kind removal note
+# in CLAUDE.md — it happened to auto-provision synthetic Gateway objects,
+# masking this), cert-manager crash-loops at startup with "the Gateway API
+# CRDs do not seem to be present" if this is turned back on.
 installCRDs: true
-config:
-  apiVersion: controller.config.cert-manager.io/v1alpha1
-  kind: ControllerConfiguration
-  featureGates:
-    ExperimentalGatewayAPISupport: true
-extraArgs:
-  - --enable-gateway-api
