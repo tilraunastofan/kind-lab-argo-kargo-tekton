@@ -55,6 +55,21 @@ spec:
             - key: node-role.kubernetes.io/control-plane
               operator: Equal
               effect: NoSchedule
+          admissionWebhooks:
+            # Disabled: this webhook only validates Ingress syntax before
+            # admission (e.g. catching a malformed annotation) — a nice-to-
+            # have, not something this lab depends on. It's also a known
+            # bad combination with ArgoCD's hook lifecycle: the webhook's
+            # cert-generating "create" Job is a PreSync hook that ArgoCD
+            # prunes on success (hook-succeeded policy), but the Secret it
+            # creates carries an ownerReference back to that same Job, so
+            # Kubernetes' garbage collector cascades and deletes the Secret
+            # the instant ArgoCD deletes the Job — right before the
+            # PostSync "patch" Job needs it. selfHeal then retries forever,
+            # regenerating and re-losing the Secret every cycle without
+            # ever reaching a stable Synced state. Disabling the webhook
+            # sidesteps the whole hook-Job/ownerReference interaction.
+            enabled: false
   destination:
     server: https://kubernetes.default.svc
     namespace: ingress-nginx
