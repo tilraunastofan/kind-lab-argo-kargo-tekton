@@ -1,0 +1,231 @@
+# helm/landing-page/app.yaml
+#
+# A plain static HTML landing page linking to every other app exposed by
+# this lab — same "no Helm chart, just raw manifests" shape as
+# helm/smoke-test/app.yaml (ArgoCD applies a directory of plain YAML when
+# there's no Chart.yaml present, no templating needed for something this
+# simple). The page itself lives in a ConfigMap and is served by a stock
+# nginx:alpine image with no custom image to build/push — the whole point
+# is that this is just static HTML, so there's no reason to maintain a
+# Dockerfile or a CI pipeline for it.
+#
+# Exposed at the bare lab domain (https://tekton-lab.test, no subdomain)
+# rather than yet another *.tekton-lab.test host: dnsmasq's
+# `address=/tekton-lab.test/<ip>` entry (helm/dns/templates/dnsmasq.yaml)
+# already matches the bare domain itself, not just its subdomains, so this
+# reads naturally as "the front door" to the whole lab.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: landing-page
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: landing-page-html
+  namespace: landing-page
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>tekton-lab</title>
+      <style>
+        :root {
+          color-scheme: dark;
+          --bg: #0f1115;
+          --card: #171a21;
+          --card-border: #262b36;
+          --text: #e6e9ef;
+          --muted: #8b93a7;
+          --accent: #58a6ff;
+        }
+        * { box-sizing: border-box; }
+        body {
+          margin: 0;
+          padding: 3rem 1.5rem;
+          background: var(--bg);
+          color: var(--text);
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        header {
+          max-width: 960px;
+          margin: 0 auto 2.5rem;
+          text-align: center;
+        }
+        header h1 {
+          font-size: 2.25rem;
+          margin: 0 0 0.5rem;
+          letter-spacing: -0.02em;
+        }
+        header p {
+          color: var(--muted);
+          margin: 0;
+          font-size: 1.05rem;
+        }
+        .grid {
+          max-width: 960px;
+          margin: 0 auto;
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+          gap: 1rem;
+        }
+        a.card {
+          display: block;
+          background: var(--card);
+          border: 1px solid var(--card-border);
+          border-radius: 12px;
+          padding: 1.25rem 1.4rem;
+          text-decoration: none;
+          color: inherit;
+          transition: border-color 0.15s ease, transform 0.15s ease;
+        }
+        a.card:hover {
+          border-color: var(--accent);
+          transform: translateY(-2px);
+        }
+        .card .icon {
+          font-size: 1.6rem;
+          margin-bottom: 0.6rem;
+          display: block;
+        }
+        .card h2 {
+          margin: 0 0 0.35rem;
+          font-size: 1.1rem;
+        }
+        .card p {
+          margin: 0;
+          color: var(--muted);
+          font-size: 0.92rem;
+          line-height: 1.4;
+        }
+        .card code {
+          color: var(--accent);
+          font-size: 0.85rem;
+        }
+        footer {
+          max-width: 960px;
+          margin: 3rem auto 0;
+          text-align: center;
+          color: var(--muted);
+          font-size: 0.85rem;
+        }
+        footer a { color: var(--accent); }
+      </style>
+    </head>
+    <body>
+      <header>
+        <h1>tekton-lab</h1>
+        <p>A Kubernetes platform-engineering lab — ArgoCD GitOps, Kargo promotion, Tekton Pipelines-as-Code, all TLS-secured via a local step-ca.</p>
+      </header>
+      <main class="grid">
+        <a class="card" href="https://argocd.tekton-lab.test" target="_blank" rel="noopener">
+          <span class="icon">&#128260;</span>
+          <h2>ArgoCD</h2>
+          <p>GitOps continuous delivery — every app in this lab is an ArgoCD <code>Application</code> synced from this repo.</p>
+        </a>
+        <a class="card" href="https://kargo.tekton-lab.test" target="_blank" rel="noopener">
+          <span class="icon">&#128666;</span>
+          <h2>Kargo</h2>
+          <p>Promotion pipeline dashboard — promotes the event-generator image from dev to prod.</p>
+        </a>
+        <a class="card" href="https://pipelines-as-code.tekton-lab.test" target="_blank" rel="noopener">
+          <span class="icon">&#9881;&#65039;</span>
+          <h2>Tekton Pipelines-as-Code</h2>
+          <p>PAC config &amp; webhook target — reacts to pushes on the Forgejo mirror and runs <code>.tekton/pipelinerun.yaml</code>.</p>
+        </a>
+        <a class="card" href="https://headlamp.tekton-lab.test" target="_blank" rel="noopener">
+          <span class="icon">&#128161;</span>
+          <h2>Headlamp</h2>
+          <p>General-purpose Kubernetes dashboard for the whole cluster.</p>
+        </a>
+        <a class="card" href="https://event-generator.tekton-lab.test" target="_blank" rel="noopener">
+          <span class="icon">&#128202;</span>
+          <h2>Event Generator (prod)</h2>
+          <p>Demo Go app writing synthetic events into ClickHouse — the app Kargo promotes into this environment.</p>
+        </a>
+        <a class="card" href="https://event-generator-dev.tekton-lab.test" target="_blank" rel="noopener">
+          <span class="icon">&#129514;</span>
+          <h2>Event Generator (dev)</h2>
+          <p>Same app, dev environment — where a new image lands before Kargo promotes it to prod above.</p>
+        </a>
+        <a class="card" href="https://smoke.tekton-lab.test" target="_blank" rel="noopener">
+          <span class="icon">&#9989;</span>
+          <h2>Smoke Test</h2>
+          <p>Minimal nginx app used to verify ingress + TLS end-to-end on every cluster bring-up.</p>
+        </a>
+      </main>
+      <footer>
+        Served from <code>helm/landing-page</code> in
+        <a href="https://github.com/tilraunastofan/kind-lab-argo-kargo-tekton" target="_blank" rel="noopener">kind-lab-argo-kargo-tekton</a>.
+      </footer>
+    </body>
+    </html>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: landing-page
+  namespace: landing-page
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: landing-page
+  template:
+    metadata:
+      labels:
+        app: landing-page
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: html
+              mountPath: /usr/share/nginx/html
+              readOnly: true
+      volumes:
+        - name: html
+          configMap:
+            name: landing-page-html
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: landing-page
+  namespace: landing-page
+spec:
+  selector:
+    app: landing-page
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: landing-page
+  namespace: landing-page
+  annotations:
+    cert-manager.io/cluster-issuer: step-ca-acme
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - tekton-lab.test
+      secretName: landing-page-tls
+  rules:
+    - host: tekton-lab.test
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: landing-page
+                port:
+                  number: 80

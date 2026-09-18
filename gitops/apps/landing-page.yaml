@@ -1,0 +1,34 @@
+# gitops/apps/landing-page.yaml
+#
+# Installs the static lab landing page (helm/landing-page/app.yaml) — same
+# tier as the other leaf, app-level Applications (smoke-test, headlamp):
+# it only needs ingress-nginx/cert-manager (sync-wave "-2") to already
+# exist, nothing else in this repo depends on it.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: landing-page
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
+    targetRevision: main
+    path: helm/landing-page
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: landing-page
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m

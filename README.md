@@ -73,6 +73,10 @@ running `task cluster:up`. None are checked up front — each corresponding
 `*-secret-up.sh`/`*-repo-up.sh` script `die`s partway through bootstrap if
 its env var is unset.
 
+### Where to start
+
+`https://tekton-lab.test` is the lab's landing page (`helm/landing-page`, `gitops/apps/landing-page.yaml`) — a static page linking to every app below. Everything is served over a real, trusted cert from this Mac's local step-ca, no `-k`/click-through-the-warning needed in a browser that trusts it.
+
 ### Task targets
 
 - `task cluster:up` — bootstrap the full lab cluster (step-ca, kind, ArgoCD/GitOps, ingress-nginx, cert-manager, DNS, smoke test).
