@@ -1,0 +1,31 @@
+# helm/kargo/extras/ingress.yaml
+#
+# Same shape as helm/argocd/extras/ingress.yaml — see that file's comment
+# for why there's no separate Certificate manifest. Backend targets
+# kargo-api's Service on port 80 (plain HTTP), which is what the chart's
+# Service listens on once api.tls.enabled is false (helm/kargo/values.yaml)
+# — ingress-nginx/cert-manager terminate the real, trusted TLS here.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kargo
+  namespace: kargo
+  annotations:
+    cert-manager.io/cluster-issuer: step-ca-acme
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - kargo.tekton-lab.test
+      secretName: kargo-tls
+  rules:
+    - host: kargo.tekton-lab.test
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kargo-api
+                port:
+                  number: 80
