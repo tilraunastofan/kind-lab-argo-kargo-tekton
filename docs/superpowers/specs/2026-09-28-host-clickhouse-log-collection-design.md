@@ -91,9 +91,12 @@ blog and OTel route (Decision 2 option B) remain open.
   tag) attached to the `kind` network, `--restart unless-stopped`, data in
   named volume `clickhouse-logs-data` (survives `cluster:down`), and
   publishes `127.0.0.1:8123` for convenience.
-- Creates the `kind` network if missing and re-runs
+- Requires the `kind` network to already exist (kind creates it; the script
+  fails with a clear message otherwise rather than hand-creating a network
+  kind expects to own) and idempotently re-runs
   `docker network connect kind clickhouse-logs` (covers the unverified
-  teardown case).
+  teardown case). An attached container also keeps kind from deleting the
+  network.
 - Users: `admin` (for the user and scripts) and insert-only `vector`
   (`GRANT INSERT ON logs.logs`). Passwords from
   `CLICKHOUSE_LOGS_ADMIN_PASSWORD` / `CLICKHOUSE_LOGS_VECTOR_PASSWORD`;

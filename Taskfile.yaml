@@ -20,3 +20,19 @@ tasks:
     desc: Re-run just the smoke-test verification
     cmds:
       - ./scripts/smoke-test.sh
+
+  logs-db:up:
+    desc: Start/repair the host ClickHouse container that stores cluster logs (needs the kind network)
+    cmds:
+      - ./scripts/clickhouse-logs-up.sh
+
+  logs-db:down:
+    desc: Remove the clickhouse-logs container (keeps its data volume; use logs-db:purge to delete data)
+    cmds:
+      - docker rm -f clickhouse-logs
+
+  logs-db:purge:
+    desc: DELETE all stored logs — removes the clickhouse-logs container and its data volume
+    cmds:
+      - docker rm -f clickhouse-logs
+      - docker volume rm clickhouse-logs-data
