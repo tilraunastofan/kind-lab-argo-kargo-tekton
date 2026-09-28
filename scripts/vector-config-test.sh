@@ -24,8 +24,8 @@ main() {
   cp "${REPO_ROOT}/helm/vector/tests/pipeline-test.yaml" "${tmp}/pipeline-test.yaml"
 
   # The sink interpolates ${CLICKHOUSE_LOGS_VECTOR_PASSWORD}; Vector fails
-  # config load if it's unset, so give it a dummy value (nothing connects).
-  local -a run=(docker run --rm -v "${tmp}:/cfg:ro" -e CLICKHOUSE_LOGS_VECTOR_PASSWORD=dummy "${VECTOR_IMAGE}")
+  # config load if it's unset (and interpolation is off by default in 0.58, hence the opt-in env var), so give it a dummy value (nothing connects).
+  local -a run=(docker run --rm -v "${tmp}:/cfg:ro" -e VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION=true -e CLICKHOUSE_LOGS_VECTOR_PASSWORD=dummy "${VECTOR_IMAGE}")
 
   log "vector test (VRL unit tests)"
   "${run[@]}" test /cfg/vector.yaml /cfg/pipeline-test.yaml

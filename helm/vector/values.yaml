@@ -29,8 +29,12 @@ serviceHeadless:
 # Password for the insert-only `vector` ClickHouse user. The Secret is created
 # out-of-band by scripts/vector-secret-up.sh (it comes from ~/.tokens and must
 # never live in Git). Vector interpolates ${CLICKHOUSE_LOGS_VECTOR_PASSWORD}
-# in the config below at startup.
+# in the config below at startup — but since Vector 0.5x that interpolation is
+# OFF by default (the literal text "${...}" would be sent as the password and
+# ClickHouse answers 403), so it must be enabled explicitly.
 env:
+  - name: VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION
+    value: "true"
   - name: CLICKHOUSE_LOGS_VECTOR_PASSWORD
     valueFrom:
       secretKeyRef:
