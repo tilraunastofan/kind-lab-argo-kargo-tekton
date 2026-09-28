@@ -1,0 +1,112 @@
+# helm/vector/values.yaml — values for the official Vector chart
+# (https://helm.vector.dev, chart `vector`), installed by
+# gitops/apps/vector.yaml into the `logging` namespace.
+#
+# Vector runs as a DaemonSet ("Agent" role): one pod per node reads that
+# node's container log files (/var/log/pods/...), enriches each line with
+# Kubernetes metadata, reshapes it to the columns of logs.logs, and inserts
+# it into the ClickHouse container that runs on the Mac (see
+# scripts/clickhouse-logs-up.sh and
+# docs/superpowers/specs/2026-09-28-host-clickhouse-log-collection-design.md).
+role: Agent
+
+# The control-plane node carries a NoSchedule taint; without this toleration
+# the DaemonSet skips it and that node's logs (kube-apiserver, etcd, ...)
+# would silently be missing — but the goal is ALL cluster logs.
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+
+# Password for the insert-only `vector` ClickHouse user. The Secret is created
+# out-of-band by scripts/vector-secret-up.sh (it comes from ~/.tokens and must
+# never live in Git). Vector interpolates ${CLICKHOUSE_LOGS_VECTOR_PASSWORD}
+# in the config below at startup.
+env:
+  - name: CLICKHOUSE_LOGS_VECTOR_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: vector-clickhouse
+        key: password
+
+# The pipeline. scripts/vector-config-test.sh extracts THIS block (yq
+# '.customConfig') to unit-test and validate it — helm/vector/tests/.
+customConfig:
+  data_dir: /vector-data-dir
+  api:
+    enabled: false
+
+  sources:
+    k8s:
+      type: kubernetes_logs
+      # Don't ship Vector's own logs: shipping them creates a feedback loop
+      # (every insert error would be logged, collected, and inserted again).
+      # Log files live under /var/log/pods/<namespace>_<pod>_<uid>/.
+      exclude_paths_glob_patterns:
+        - "/var/log/pods/logging_vector-*/**"
+
+  transforms:
+    # Reshape a kubernetes_logs event into exactly the columns of logs.logs.
+    shape:
+      type: remap
+      inputs: [k8s]
+      source: |
+        # `?? ""` = "if the field is missing or the wrong type, use empty
+        # string" — one odd event must never fail the whole remap.
+        .namespace = string(.kubernetes.pod_namespace) ?? ""
+        .pod = string(.kubernetes.pod_name) ?? ""
+        .container = string(.kubernetes.container_name) ?? ""
+        .node = string(.kubernetes.pod_node_name) ?? ""
+        .stream = string(.stream) ?? ""
+        .message = string(.message) ?? ""
+
+        # Map(String,String) column: stringify every label value.
+        labels = object(.kubernetes.pod_labels) ?? {}
+        .labels = map_values(labels) -> |v| { to_string(v) ?? "" }
+
+        # Structured (JSON-object) log lines: keep the raw line in `message`
+        # AND expose the top-level keys as a queryable Map. Strings stay as-is,
+        # anything else (numbers, nested objects, arrays) becomes JSON text.
+        # The starts_with guard avoids attempting a parse on ordinary text;
+        # parse errors are swallowed and simply leave `fields` empty.
+        fields = {}
+        if starts_with(.message, "{") {
+          parsed, err = parse_json(.message)
+          if err == null && is_object(parsed) {
+            fields = map_values(object!(parsed)) -> |v| { string(v) ?? encode_json(v) }
+          }
+        }
+        .fields = fields
+
+        # Drop the source's bulky metadata; ClickHouse would ignore it anyway
+        # (skip_unknown_fields below) but there is no reason to serialize it.
+        del(.kubernetes)
+        del(.file)
+        del(.source_type)
+
+  sinks:
+    clickhouse:
+      type: clickhouse
+      inputs: [shape]
+      # Container name on the `kind` Docker network (pods resolve it through
+      # CoreDNS -> the node's Docker DNS).
+      endpoint: http://clickhouse-logs:8123
+      database: logs
+      table: logs
+      auth:
+        strategy: basic
+        user: vector
+        password: "${CLICKHOUSE_LOGS_VECTOR_PASSWORD}"
+      # The event carries only the table's columns after `shape`, but be
+      # tolerant of anything extra rather than failing a whole batch.
+      skip_unknown_fields: true
+      # Vector emits RFC 3339 timestamps; this lets ClickHouse parse them into
+      # the DateTime64 column.
+      date_time_best_effort: true
+      batch:
+        timeout_secs: 5
+        max_events: 5000
+      # Default buffer is a small in-memory one with backpressure
+      # (when_full: block): if ClickHouse is down Vector stops reading and
+      # resumes from its checkpoint (data_dir) once it is back. Lines rotated
+      # away during a long outage are lost — acceptable for a lab.

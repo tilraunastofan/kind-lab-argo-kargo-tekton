@@ -1,0 +1,41 @@
+# gitops/apps/vector.yaml
+#
+# Installs Vector (https://vector.dev) as a DaemonSet that ships every
+# container log in the cluster to the ClickHouse container running on the Mac
+# (scripts/clickhouse-logs-up.sh). Chart values, including the whole pipeline,
+# live in helm/vector/values.yaml. The vector-clickhouse Secret it needs is
+# created by scripts/vector-secret-up.sh (bootstrap.sh runs it before ArgoCD
+# gets here), so no sync-wave is needed — until the Secret exists the pods
+# simply wait in CreateContainerConfigError.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: vector
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://helm.vector.dev
+      chart: vector
+      targetRevision: 0.58.0
+      helm:
+        valueFiles:
+          - $values/helm/vector/values.yaml
+    - repoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: logging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m
