@@ -9,6 +9,12 @@ main() {
 
   "${SCRIPT_DIR}/stepca-bootstrap.sh"
   "${SCRIPT_DIR}/cluster-up.sh"
+  # The log-storage ClickHouse (a plain Docker container on the Mac, attached
+  # to kind's Docker network) — see scripts/clickhouse-logs-up.sh. Must run
+  # AFTER cluster-up.sh because the `kind` network only exists once kind has
+  # created the cluster, and it re-attaches the container to that network on
+  # every rebuild. Independent of ArgoCD, so it can run this early.
+  "${SCRIPT_DIR}/clickhouse-logs-up.sh"
   # The three kargo-*-up.sh scripts run here, BEFORE argocd-up.sh, and
   # deliberately NOT grouped with datadog-secret-up.sh/registry-secret-up.sh
   # below (which only need kubectl too, but are harmless to run either side
@@ -40,6 +46,11 @@ main() {
   # ArgoCD comes up, so the datadog-secret Secret always exists before
   # datadog-agent's Application (sync-wave "1") gets anywhere near syncing.
   "${SCRIPT_DIR}/datadog-secret-up.sh"
+  # Same reasoning as datadog-secret-up.sh: kubectl-only, and placed before
+  # ArgoCD syncs gitops/apps/vector.yaml so the vector-clickhouse Secret
+  # exists when Vector's pods first start. Reads the password that
+  # clickhouse-logs-up.sh generated into ~/.tokens (via ensure_token).
+  "${SCRIPT_DIR}/vector-secret-up.sh"
   # Same reasoning as datadog-secret-up.sh above: registry-secret-up.sh
   # only needs kubectl, so it can run this early too — placed here so the
   # ghcr-pull imagePullSecret always exists before event-generator's

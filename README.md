@@ -96,6 +96,32 @@ Run the printed command, then just re-run `task cluster:up` — it picks up wher
 
 The GitOps source repo is `https://github.com/tilraunastofan/kind-lab-argo-kargo-tekton` (private) — ArgoCD's Applications pull from this same repo's `main` branch (whether declared statically under `gitops/apps/` or rendered from `gitops/apps-templates/` at bootstrap time, see "Cluster GitOps" above). Going forward, a `git push` to `main` is what triggers ArgoCD's auto-sync for the Helm charts those Applications reference. Re-running `task cluster:up` only re-applies the root App-of-Apps pointer — it does not redeploy changes to those Applications' own content; ArgoCD's own continuous reconciliation handles that.
 
+### Log collection (Vector → host ClickHouse)
+
+All cluster container logs are shipped to a ClickHouse that runs outside the cluster, as a plain Docker container (`clickhouse-logs`) on this Mac, attached to kind's Docker network (`scripts/clickhouse-logs-up.sh`, run by `task cluster:up` right after the cluster exists). Inside the cluster, a Vector DaemonSet in the `logging` namespace (`gitops/apps/vector.yaml`, `helm/vector`) reads every node's pod log files, including the control-plane node's, and inserts them into `logs.logs`. Vector excludes its own pod's logs so insert errors can't feed back into the table. Design: `docs/superpowers/specs/2026-09-28-host-clickhouse-log-collection-design.md`.
+
+- `task logs-db:up` — start or repair the container (idempotent; re-attaches it to the `kind` network). Needs the cluster to exist, since kind creates that network.
+- `task logs-db:down` — remove the container but keep its data volume (`clickhouse-logs-data`).
+- `task logs-db:purge` — delete the container and the data volume, i.e. all stored logs.
+
+The two passwords (`CLICKHOUSE_LOGS_ADMIN_PASSWORD` for the `admin` user, `CLICKHOUSE_LOGS_VECTOR_PASSWORD` for Vector's insert-only `vector` user) are generated automatically into `~/.tokens` on first run; nothing to export by hand. `chmod 600 ~/.tokens` is recommended, and the script warns if it has to append to a group/other-accessible file. To query:
+
+```bash
+source ~/.tokens
+docker exec -it clickhouse-logs clickhouse-client --user admin --password "$CLICKHOUSE_LOGS_ADMIN_PASSWORD" \
+  --query "SELECT timestamp, namespace, pod, message FROM logs.logs ORDER BY timestamp DESC LIMIT 20"
+# or over HTTP from the Mac: curl 'http://127.0.0.1:8123/?user=admin&password=...' --data 'SELECT ...'
+```
+
+Rows expire after 14 days (table TTL). The data volume survives `task cluster:down`, so logs from before a rebuild are still there afterwards.
+
+Things worth knowing:
+
+- Vector 0.58 turns off `${VAR}` interpolation in its config by default, so `helm/vector/values.yaml` sets `VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION=true` (and `scripts/vector-config-test.sh` sets it too) for the sink's `${CLICKHOUSE_LOGS_VECTOR_PASSWORD}` to be substituted. Without it the literal string is sent as the password and ClickHouse answers 403. The tradeoff is that interpolation then applies to every config value; the alternative is Vector's secret backends.
+- The chart's Services are disabled (`service.enabled: false`, `serviceHeadless.enabled: false`): Vector has no network sources or API, and the API server rejects portless Services.
+- Logs emitted while the sink was failing (bad password, or a long ClickHouse outage) are dropped, not replayed, because of checkpoint semantics plus log rotation.
+- Datadog is still disabled. The idea of sending the Datadog Agent's logs through Vector into this ClickHouse is future work only.
+
 ### Troubleshooting
 
 - If `https://*.tekton-lab.test` stops resolving or connecting after this Mac's IP changes (e.g. switching Wi-Fi networks), re-run `scripts/dns-bootstrap.sh` — it looks up this Mac's current LAN IP fresh every run and re-points dnsmasq at it.
