@@ -18,6 +18,14 @@ tolerations:
     operator: Exists
     effect: NoSchedule
 
+# Vector only reads files and pushes to ClickHouse; it listens on no port
+# (api disabled, no network sources), so the chart's Services would render with
+# empty spec.ports and be rejected by the API server. Disable them.
+service:
+  enabled: false
+serviceHeadless:
+  enabled: false
+
 # Password for the insert-only `vector` ClickHouse user. The Secret is created
 # out-of-band by scripts/vector-secret-up.sh (it comes from ~/.tokens and must
 # never live in Git). Vector interpolates ${CLICKHOUSE_LOGS_VECTOR_PASSWORD}
