@@ -21,9 +21,10 @@ these apps). To re-enable:
 git mv gitops/apps-disabled/datadog-operator.yaml gitops/apps-disabled/datadog-agent.yaml gitops/apps/
 git commit -m "chore: re-enable Datadog"
 git push origin main
-# scripts/datadog-secret-up.sh already runs on every `task cluster:up` /
-# bootstrap.sh, so the datadog-secret Secret will already exist; if it
-# doesn't (e.g. you also deleted the datadog namespace by hand), re-run:
+# bootstrap.sh only runs scripts/datadog-secret-up.sh when
+# DATADOG_ENABLED=true, so export that (plus DATADOG_API_KEY) for future
+# `task cluster:up` runs, and create the Secret now on the running cluster:
+export DATADOG_ENABLED=true
 ./scripts/datadog-secret-up.sh
 ```
 

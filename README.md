@@ -65,13 +65,17 @@ need some traffic generated in the cluster from our demo app(s) to the in-cluste
 
 `bootstrap.sh` checks for all of these up front and fails fast if any are missing: `kind`, `helm`, `kubectl`, `docker`, `step`, `step-ca`, `go`, `curl`, `openssl`, `security`, `launchctl`, `scutil`, `envsubst`, plus `task` itself to drive the Taskfile. See `bootstrap.sh`'s `require_cmd` call for the authoritative list.
 
-Also required: the `DATADOG_API_KEY`, `GHCR_PULL_TOKEN`, and `FORGEJO_TOKEN`
-env vars (a Datadog API key, a `read:packages`-scoped GitHub token, and a
-Forgejo personal access token with `Repository:Write`/`Issue:Write` scopes
-respectively — not binaries on `PATH`) must be exported in your shell before
-running `task cluster:up`. None are checked up front — each corresponding
-`*-secret-up.sh`/`*-repo-up.sh` script `die`s partway through bootstrap if
-its env var is unset.
+Also required: the `GHCR_PULL_TOKEN` and `FORGEJO_TOKEN` env vars (a
+`read:packages`-scoped GitHub token and a Forgejo personal access token with
+`Repository:Write`/`Issue:Write` scopes respectively — not binaries on
+`PATH`) must be exported in your shell before running `task cluster:up`.
+None are checked up front — each corresponding `*-secret-up.sh`/`*-repo-up.sh`
+script `die`s partway through bootstrap if its env var is unset.
+
+Datadog is behind a flag and off by default: `DATADOG_API_KEY` is only
+required when `DATADOG_ENABLED=true` is exported. Enabling it also means
+moving its Applications back into `gitops/apps/` (see
+`gitops/apps-disabled/README.md`).
 
 ### Where to start
 

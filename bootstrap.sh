@@ -45,7 +45,15 @@ main() {
   # it can run as soon as the cluster exists — placed here, right after
   # ArgoCD comes up, so the datadog-secret Secret always exists before
   # datadog-agent's Application (sync-wave "1") gets anywhere near syncing.
-  "${SCRIPT_DIR}/datadog-secret-up.sh"
+  # Datadog is off by default (DATADOG_ENABLED=true to opt in), so
+  # DATADOG_API_KEY is only required when it's on. This flag only gates the
+  # Secret; the ArgoCD Applications are toggled separately by moving them
+  # between gitops/apps-disabled/ and gitops/apps/ (see the README there).
+  if [ "${DATADOG_ENABLED:-false}" = "true" ]; then
+    "${SCRIPT_DIR}/datadog-secret-up.sh"
+  else
+    log "Datadog disabled (DATADOG_ENABLED != true), skipping datadog-secret-up.sh"
+  fi
   # Same reasoning as datadog-secret-up.sh: kubectl-only, and placed before
   # ArgoCD syncs gitops/apps/vector.yaml so the vector-clickhouse Secret
   # exists when Vector's pods first start. Reads the password that
