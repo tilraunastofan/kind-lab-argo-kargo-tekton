@@ -1,0 +1,68 @@
+# .tekton/pull-request.yaml
+#
+# Demo pipeline for pull requests AND pushes to main. Shows PAC's dynamic
+# template variables ({{ ... }}), parallel tasks, and how a failing task
+# turns into a failed status on the commit/PR.
+#
+#   - Open a PR against main on Forgejo -> runs, status shows on the PR.
+#   - Push to main                      -> runs too (event_type = push).
+#   - Name the source branch with "fail" in it (e.g. demo/fail-ci) to see a
+#     failing check; any other branch name passes.
+#   - Comment `/retest` on the PR to re-run it.
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: demo-ci-
+  annotations:
+    pipelinesascode.tekton.dev/on-event: "[pull_request, push]"
+    pipelinesascode.tekton.dev/on-target-branch: "[main]"
+    pipelinesascode.tekton.dev/max-keep-runs: "10"
+spec:
+  pipelineSpec:
+    tasks:
+      - name: show-context
+        taskSpec:
+          steps:
+            - name: print
+              image: alpine:3.20
+              script: |
+                #!/bin/sh
+                echo "event:    {{ event_type }}"
+                echo "repo:     {{ repo_url }}"
+                echo "branch:   {{ source_branch }} -> {{ target_branch }}"
+                echo "commit:   {{ revision }}"
+                echo "author:   {{ sender }}"
+      - name: lint
+        runAfter: [show-context]
+        taskSpec:
+          steps:
+            - name: lint
+              image: alpine:3.20
+              script: |
+                #!/bin/sh
+                set -e
+                echo "pretend linting..."; sleep 5
+                echo "lint ok"
+      - name: test
+        runAfter: [show-context]
+        taskSpec:
+          steps:
+            - name: test
+              image: alpine:3.20
+              script: |
+                #!/bin/sh
+                set -e
+                echo "pretend testing..."; sleep 8
+                case "{{ source_branch }}" in
+                  *fail*) echo "branch name contains 'fail': failing on purpose"; exit 1 ;;
+                esac
+                echo "tests ok"
+      - name: summary
+        runAfter: [lint, test]
+        taskSpec:
+          steps:
+            - name: done
+              image: alpine:3.20
+              script: |
+                #!/bin/sh
+                echo "all checks passed for {{ revision }}"

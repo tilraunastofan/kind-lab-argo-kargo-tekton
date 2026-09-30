@@ -27,4 +27,4 @@ spec:
                 #!/bin/sh
                 set -e
                 echo "pac says hi from $(hostname)"
-                echo "triggered by PAC on kind-lab"
+                echo "triggered by PAC on tekton-lab"
