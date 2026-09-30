@@ -98,10 +98,9 @@ The same manifest with `stage: dev` promotes to dev by hand (normally unnecessar
 Friendlier than raw `kubectl` (shorter output, one-command promotion). Install with
 `brew install kargo`.
 
-> Status: the syntax below comes from `kargo --help` (v1.12.0) and is not yet
-> confirmed against this lab's server, because that needs the admin password.
-> `kargo login --kubeconfig` does **not** work here (verified): it needs a bearer/OIDC
-> token in your kubeconfig, and kind's kubeconfig uses client certificates.
+> Tested against this lab with kargo v1.12.0 (login, `get`, `refresh`; `promote` syntax is
+> from `--help` and was not run). `kargo login --kubeconfig` does **not** work here: it needs a
+> bearer/OIDC token in your kubeconfig, and kind's kubeconfig uses client certificates.
 
 ### Log in (once; the token lasts 24h)
 
@@ -110,10 +109,18 @@ kargo login https://kargo.tekton-lab.test --admin      # asks for the admin pass
 kargo config set-project kind-lab                      # so you can leave out --project
 ```
 
-The admin password was printed once by `scripts/kargo-admin-up.sh` during bootstrap
-(only its hash is stored in the `kargo-admin` Secret in namespace `kargo`). If it is
-lost, delete that Secret and re-run `scripts/kargo-admin-up.sh` to generate a new one
-(then restart the `kargo-api` Deployment so it picks it up).
+The admin password is stored in `~/.tokens` as `KARGO_ADMIN_PASSWORD` (a lab credential,
+generated once by `scripts/kargo-admin-up.sh`, never committed). Show it with
+`source ~/.tokens; echo "$KARGO_ADMIN_PASSWORD"`. Note the interactive prompt needs a real
+terminal (it fails with `EOF` under Claude Code's `!` prefix); non-interactively:
+
+```bash
+source ~/.tokens && kargo login https://kargo.tekton-lab.test --admin --password "$KARGO_ADMIN_PASSWORD"
+```
+
+If you ever change or lose it, re-run `scripts/kargo-admin-up.sh`: it re-syncs the
+`kargo-admin` Secret to the stored password (keeping the token signing key), then
+`kubectl -n kargo rollout restart deploy kargo-api` to pick it up.
 
 ### Look around
 
