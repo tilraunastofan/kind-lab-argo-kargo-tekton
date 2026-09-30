@@ -51,7 +51,8 @@ Any `.tekton/*.yaml` whose annotations match the event is started. Two exist:
 | File | Runs on | What it does |
 |---|---|---|
 | `.tekton/pipelinerun.yaml` | push to `main` | minimal hello-world |
-| `.tekton/pull-request.yaml` | PR against `main`, push to `main` | parallel lint/test, prints PAC variables; fails if the source branch name contains `fail` |
+| `.tekton/pull-request.yaml` | PR against `main`, push to `main` | inline pipeline: parallel lint/test, prints PAC variables; fails if the source branch name contains `fail` |
+| `.tekton/reusable-pipeline.yaml` | PR against `main`, push to `main` | runs the cluster's reusable `demo-pipeline` (see below); same `fail` rule |
 
 **PR demo:**
 
@@ -81,6 +82,23 @@ registration needed). Choose when it runs with the annotations:
 Use `generateName:` (not `name:`) so each run gets a unique name. The pipeline
 definition is read **from the pushed commit**, so a change takes effect with
 the push that contains it.
+
+### Reusable Pipelines and Tasks (Dashboard "Pipelines" / "Tasks" views)
+
+The Dashboard's Pipelines and Tasks pages list real `Pipeline`/`Task` objects in
+the cluster. `demo-pipeline` (Pipeline) and `greet`, `run-check` (Tasks) are
+deployed by ArgoCD from `helm/pipelines-as-code-config/templates/demo-pipeline.yaml`;
+`.tekton/reusable-pipeline.yaml` runs them. Runs started from it carry the label
+`tekton.dev/pipeline=demo-pipeline`, so the Pipelines page links to them.
+
+**Gotcha:** a plain `pipelineRef: {name: demo-pipeline}` in a `.tekton/` file
+does **not** work. PAC only accepts plain refs to Pipelines defined in `.tekton/`
+(or fetched via annotation), and the resulting error
+(`cannot find referenced pipeline ...`) aborts *every* pipeline for that event,
+not just the offending one. Use Tekton's cluster resolver as that file does
+(`pipelineRef: {resolver: cluster, params: [kind, name, namespace]}`).
+Likewise, PAC's `{{ }}` only substitutes known variables (no expressions; an
+unknown one silently produces no run).
 
 ### 3. Re-running
 
