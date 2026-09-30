@@ -2,7 +2,7 @@
 #
 # Runs the cluster's reusable `demo-pipeline` Pipeline (defined in
 # helm/pipelines-as-code-config/templates/demo-pipeline.yaml, deployed by
-# ArgoCD) through pipelineRef — so it appears under Pipelines/Tasks in the
+# ArgoCD) through a cluster-resolver pipelineRef — so it appears under Pipelines/Tasks in the
 # Tekton Dashboard, unlike the inline pipelines next to it. A source branch
 # whose name contains "fail" makes its test task fail.
 apiVersion: tekton.dev/v1
@@ -14,8 +14,19 @@ metadata:
     pipelinesascode.tekton.dev/on-target-branch: "[main]"
     pipelinesascode.tekton.dev/max-keep-runs: "10"
 spec:
+  # Cluster resolver, not a plain `pipelineRef: {name: ...}`: PAC itself only
+  # accepts plain pipelineRef names that are defined in .tekton/ (or fetched
+  # via annotation), and one unresolvable ref aborts EVERY pipeline for the
+  # event. The resolver defers the lookup to Tekton at run time.
   pipelineRef:
-    name: demo-pipeline
+    resolver: cluster
+    params:
+      - name: kind
+        value: pipeline
+      - name: name
+        value: demo-pipeline
+      - name: namespace
+        value: pipelines-as-code
   params:
     - name: revision
       value: "{{ revision }}"
