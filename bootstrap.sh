@@ -71,6 +71,8 @@ main() {
   # its webhook.secret key back out) and pipelines-as-code-config's
   # Application (Task 4) ever sync.
   "${SCRIPT_DIR}/pac-forgejo-secret-up.sh"
+  # Optional write credential for Tekton image pushes (skips with a warning if GHCR_PUSH_TOKEN is unset).
+  "${SCRIPT_DIR}/ghcr-push-secret-up.sh"
   "${SCRIPT_DIR}/forgejo-repo-up.sh"
   # pac-forgejo-trust-up.sh (Forgejo/Pi-side: step-ca trust, DNS override,
   # ALLOWED_HOST_LIST) and pac-ca-trust-up.sh (builds the ConfigMap the

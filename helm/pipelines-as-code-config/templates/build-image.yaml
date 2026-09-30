@@ -1,0 +1,182 @@
+# helm/pipelines-as-code-config/templates/build-image.yaml
+#
+# Reusable Docker-build pipeline: clone the repo, then build the image with
+# Buildah (daemonless; kind's nodes run containerd, there is no Docker
+# socket) and optionally push it to ghcr.io. Run from
+# .tekton/build-image-pr.yaml (build only) and .tekton/build-image-main.yaml
+# (build + push) via the cluster resolver.
+#
+# Helm note: no double-brace sequences below; Tekton's $(...) is safe.
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: git-clone
+  namespace: pipelines-as-code
+spec:
+  description: Clones a repo from Forgejo (private) and checks out a revision.
+  params:
+    - name: url
+    - name: revision
+  workspaces:
+    - name: output
+    - name: basic-auth
+      description: Secret PAC creates per run (.gitconfig + .git-credentials)
+  volumes:
+    # git.local is fronted by Caddy's local CA, which pods don't trust by
+    # default: reuse the CA bundle PAC itself mounts (scripts/pac-ca-trust-up.sh).
+    - name: ca-bundle
+      configMap:
+        name: pac-controller-ca-bundle
+  steps:
+    - name: clone
+      image: alpine/git:2.47.2
+      env:
+        - name: HOME
+          value: /tekton/home
+        - name: GIT_SSL_CAINFO
+          value: /etc/pac-ca/ca-certificates.crt
+      volumeMounts:
+        - name: ca-bundle
+          mountPath: /etc/pac-ca
+          readOnly: true
+      script: |
+        #!/bin/sh
+        set -eu
+        cp $(workspaces.basic-auth.path)/.gitconfig "$HOME/.gitconfig"
+        cp $(workspaces.basic-auth.path)/.git-credentials "$HOME/.git-credentials"
+        chmod 600 "$HOME/.git-credentials"
+        git config --global --add safe.directory "$(workspaces.output.path)"
+        git clone "$(params.url)" "$(workspaces.output.path)"
+        cd "$(workspaces.output.path)"
+        git checkout -q "$(params.revision)"
+        echo "checked out $(git rev-parse --short HEAD): $(git log -1 --format=%s)"
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: buildah-build
+  namespace: pipelines-as-code
+spec:
+  description: >-
+    Builds a Dockerfile with Buildah (vfs storage, chroot isolation: works
+    without a privileged container) tagged with the first 7 chars of the
+    revision, and pushes it when push=true.
+  params:
+    - name: image-repo
+      description: Image repository without tag (e.g. ghcr.io/org/app)
+    - name: revision
+      description: Git commit SHA; the first 7 characters become the tag
+    - name: context-dir
+      default: "."
+    - name: dockerfile
+      default: Dockerfile
+      description: Dockerfile path relative to the context dir
+    - name: push
+      default: "false"
+      description: '"true" to push to the registry after building'
+  workspaces:
+    - name: source
+    - name: dockerconfig
+      optional: true
+      description: Secret with .dockerconfigjson (registry push credentials)
+  results:
+    - name: image
+      description: The image reference that was built
+    - name: digest
+      description: Image digest, when pushed
+  volumes:
+    - name: containers-storage
+      emptyDir: {}
+  steps:
+    - name: build-and-push
+      image: quay.io/buildah/stable:v1.43.4
+      workingDir: $(workspaces.source.path)
+      securityContext:
+        runAsUser: 0
+        capabilities:
+          add: ["SETFCAP"]
+      volumeMounts:
+        - name: containers-storage
+          mountPath: /var/lib/containers
+      script: |
+        #!/bin/sh
+        set -eu
+        TAG="$(printf %s "$(params.revision)" | cut -c1-7)"
+        IMAGE="$(params.image-repo):${TAG}"
+        echo "building ${IMAGE}"
+        buildah --storage-driver=vfs build --isolation=chroot --format=docker \
+          -f "$(params.context-dir)/$(params.dockerfile)" -t "${IMAGE}" "$(params.context-dir)"
+        printf %s "${IMAGE}" > $(results.image.path)
+        if [ "$(params.push)" = "true" ]; then
+          if [ "$(workspaces.dockerconfig.bound)" != "true" ]; then
+            echo "push=true but no registry credentials are bound (secret ghcr-push missing; run scripts/ghcr-push-secret-up.sh)"; exit 1
+          fi
+          echo "pushing ${IMAGE}"
+          buildah --storage-driver=vfs push --authfile "$(workspaces.dockerconfig.path)/.dockerconfigjson" \
+            --digestfile /tmp/digest "${IMAGE}" "docker://${IMAGE}"
+          cp /tmp/digest $(results.digest.path)
+          echo "pushed ${IMAGE} ($(cat /tmp/digest))"
+        else
+          echo "push=false: build only, nothing pushed"
+          printf '' > $(results.digest.path)
+        fi
+---
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: build-image
+  namespace: pipelines-as-code
+spec:
+  description: Clone the repo, build its Docker image with Buildah, optionally push to ghcr.io.
+  params:
+    - name: repo-url
+    - name: revision
+    - name: image-repo
+    - name: context-dir
+      default: "."
+    - name: dockerfile
+      default: Dockerfile
+    - name: push
+      default: "false"
+  workspaces:
+    - name: source
+    - name: basic-auth
+    - name: dockerconfig
+      optional: true
+  results:
+    - name: image
+      value: $(tasks.build.results.image)
+  tasks:
+    - name: fetch-source
+      taskRef:
+        name: git-clone
+      params:
+        - name: url
+          value: $(params.repo-url)
+        - name: revision
+          value: $(params.revision)
+      workspaces:
+        - name: output
+          workspace: source
+        - name: basic-auth
+          workspace: basic-auth
+    - name: build
+      runAfter: [fetch-source]
+      taskRef:
+        name: buildah-build
+      params:
+        - name: image-repo
+          value: $(params.image-repo)
+        - name: revision
+          value: $(params.revision)
+        - name: context-dir
+          value: $(params.context-dir)
+        - name: dockerfile
+          value: $(params.dockerfile)
+        - name: push
+          value: $(params.push)
+      workspaces:
+        - name: source
+          workspace: source
+        - name: dockerconfig
+          workspace: dockerconfig
