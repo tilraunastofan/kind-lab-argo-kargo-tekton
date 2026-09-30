@@ -46,7 +46,9 @@ main() {
   require_cmd ssh scp
 
   log "checking step-ca root CA trust inside the forgejo container"
-  if ssh "${FORGEJO_HOST_SSH}" "docker exec forgejo test -f /usr/local/share/ca-certificates/stepca-root.crt" 2>/dev/null; then
+  # Compare CONTENT, not just existence: step-ca gets a new root whenever its
+  # PKI is re-initialised, and a stale file would otherwise be "trusted" forever.
+  if [ "$(ssh "${FORGEJO_HOST_SSH}" "docker exec forgejo cat /usr/local/share/ca-certificates/stepca-root.crt" 2>/dev/null)" = "$(cat "${HOME}/.step/certs/root_ca.crt")" ]; then
     log "step-ca root already trusted, skipping"
   else
     log "installing step-ca root CA into the forgejo container"
@@ -58,11 +60,15 @@ main() {
   [ -n "${MAC_LAN_IP_CACHE}" ] || die "could not determine this Mac's LAN IP"
 
   log "checking pipelines-as-code.tekton-lab.test DNS override inside the forgejo container"
-  if ssh "${FORGEJO_HOST_SSH}" "docker exec forgejo grep -q pipelines-as-code.tekton-lab.test /etc/hosts" 2>/dev/null; then
-    log "hosts override already present, skipping"
+  # Compare the IP too: the Mac's DHCP-assigned LAN IP changes, and a stale
+  # entry sends webhooks to whatever else now holds the old address.
+  # /etc/hosts is a bind mount inside the container, so rewrite it in place
+  # (cat >) rather than with sed -i / mv, which fail on a mount point.
+  if ssh "${FORGEJO_HOST_SSH}" "docker exec forgejo grep -qx '${MAC_LAN_IP_CACHE} pipelines-as-code.tekton-lab.test' /etc/hosts" 2>/dev/null; then
+    log "hosts override already present and current, skipping"
   else
-    log "adding pipelines-as-code.tekton-lab.test -> ${MAC_LAN_IP_CACHE} to the forgejo container's /etc/hosts"
-    ssh "${FORGEJO_HOST_SSH}" "docker exec -u root forgejo sh -c 'echo \"${MAC_LAN_IP_CACHE} pipelines-as-code.tekton-lab.test\" >> /etc/hosts'"
+    log "setting pipelines-as-code.tekton-lab.test -> ${MAC_LAN_IP_CACHE} in the forgejo container's /etc/hosts"
+    ssh "${FORGEJO_HOST_SSH}" "docker exec -u root forgejo sh -c 'grep -v pipelines-as-code.tekton-lab.test /etc/hosts > /tmp/hosts.new; echo \"${MAC_LAN_IP_CACHE} pipelines-as-code.tekton-lab.test\" >> /tmp/hosts.new; cat /tmp/hosts.new > /etc/hosts'"
   fi
 
   log "checking webhook.ALLOWED_HOST_LIST in Forgejo's app.ini"
