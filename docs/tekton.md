@@ -21,40 +21,51 @@ statuses, and container logs in ClickHouse (see [Monitoring](#monitoring-and-sta
 ## How a job gets started
 
 ```
-git push (GitHub main)
-   └─> Forgejo pull-mirror sync (every 10m)   https://git.local
-         └─> webhook ──> https://pipelines-as-code.tekton-lab.test
-               └─> PAC controller reads .tekton/*.yaml from the pushed commit
-                     └─> creates a PipelineRun in namespace pipelines-as-code
-                           └─> Tekton runs one pod per task
-                                 └─> PAC watcher posts the result back as a
-                                     commit status on the Forgejo mirror
+git push forgejo <branch>  /  open or update a PR on Forgejo   https://git.local
+   └─> webhook ──> https://pipelines-as-code.tekton-lab.test
+         └─> PAC controller reads .tekton/*.yaml from the pushed commit
+               └─> creates a PipelineRun in namespace pipelines-as-code
+                     └─> Tekton runs one pod per task
+                           └─> PAC watcher posts the result back as a
+                               commit status (and PR check) on Forgejo
 ```
 
-The repo registered with PAC is `jakob/kind-lab-argo-kargo-tekton` on Forgejo
-(`Repository` CR `kind-lab-argo-kargo-tekton`, namespace `pipelines-as-code`).
-PipelineRuns it creates live in that same namespace.
+The Forgejo repo `jakob/kind-lab-argo-kargo-tekton` is a regular, standalone
+repo (it used to be a GitHub pull-mirror, which can't take PRs). GitHub
+remains ArgoCD's source; Forgejo is where Tekton CI is triggered. It is
+registered with PAC through the `Repository` CR `kind-lab-argo-kargo-tekton`
+in namespace `pipelines-as-code`, and PipelineRuns live in that namespace.
 
-### 1. Push to `main` (the normal path)
-
-Any `.tekton/*.yaml` whose annotations match the event is started. Today there
-is one, `.tekton/pipelinerun.yaml`:
-
-```yaml
-annotations:
-  pipelinesascode.tekton.dev/on-event: "[push]"
-  pipelinesascode.tekton.dev/on-target-branch: "[main]"
-```
+One-time git setup (the Mac doesn't trust Caddy's cert for `git.local`, so use
+the Tailscale name, which has a public cert and also works off the LAN):
 
 ```bash
-git push origin main          # to GitHub
+git remote add forgejo https://cm4.tail87cd0d.ts.net/jakob/kind-lab-argo-kargo-tekton.git
+git push forgejo main            # prompts for Forgejo username + token/password
 ```
 
-Forgejo mirrors GitHub on a **10 minute** interval, so the run can start up to
-10 minutes after the push. To skip the wait, either trigger a mirror sync
-(Forgejo UI → repo → Settings → *Synchronize now*) or push straight to the
-Forgejo repo (`https://git.local/jakob/kind-lab-argo-kargo-tekton`), which
-fires the webhook immediately.
+### 1. Start a job from Git
+
+Any `.tekton/*.yaml` whose annotations match the event is started. Two exist:
+
+| File | Runs on | What it does |
+|---|---|---|
+| `.tekton/pipelinerun.yaml` | push to `main` | minimal hello-world |
+| `.tekton/pull-request.yaml` | PR against `main`, push to `main` | parallel lint/test, prints PAC variables; fails if the source branch name contains `fail` |
+
+**PR demo:**
+
+```bash
+git checkout -b demo/hello
+git commit --allow-empty -m "demo change" && git push forgejo demo/hello
+# open a PR demo/hello -> main in the Forgejo UI; the check appears on the PR
+git checkout -b demo/fail-ci && git commit --allow-empty -m x && git push forgejo demo/fail-ci
+# PR from demo/fail-ci -> failing check (status = failure)
+```
+
+Comment `/retest` on the PR to re-run. Pushing more commits to the PR branch
+re-runs automatically. Pushing to `main` (`git push forgejo main`) runs the
+push pipelines. Webhooks fire immediately; there is no sync delay.
 
 ### 2. Adding or changing a pipeline
 
@@ -73,8 +84,8 @@ the push that contains it.
 
 ### 3. Re-running
 
-- **Pull request comments** (if a PipelineRun has `on-event: "[pull_request]"`):
-  comment `/retest` (all) or `/test <pipelinerun-name>` on the Forgejo PR.
+- **Pull request comments**: comment `/retest` (all) or `/test <pipelinerun-name>`
+  on the Forgejo PR.
 - **Push events** have no comment to re-trigger. Push another commit
   (`git commit --allow-empty -m "rerun CI" && git push`), or re-deliver the
   webhook: Forgejo → repo → Settings → Webhooks → the PAC hook → *Recent
@@ -138,7 +149,7 @@ tkn pipelinerun describe -n pipelines-as-code <name>
 ### Forgejo commit status
 
 For runs started by PAC, the watcher posts the result on the commit in the
-Forgejo mirror (`https://git.local/jakob/kind-lab-argo-kargo-tekton/commits/branch/main`),
+Forgejo repo (`https://git.local/jakob/kind-lab-argo-kargo-tekton/commits/branch/main`),
 shown as `Pipelines as Code CI / <pipeline> : success|failure|pending`.
 Remote from the LAN: use `https://cm4.tail87cd0d.ts.net` over Tailscale.
 
@@ -167,7 +178,7 @@ Tekton step containers are named `step-<name>`.
 
 Work down the chain; each link is observable.
 
-1. **Did Forgejo get the commit?** Check the mirror's latest commit at
+1. **Did Forgejo get the commit?** Check the repo's latest commit at
    `https://git.local/jakob/kind-lab-argo-kargo-tekton`. If not, sync it or
    wait up to 10 minutes.
 2. **Did Forgejo send the webhook?** Repo → Settings → Webhooks → *Recent
