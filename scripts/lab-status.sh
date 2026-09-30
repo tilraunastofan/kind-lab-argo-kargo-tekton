@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib.sh"
 
 CLUSTER_NAME="${CLUSTER_NAME:-tekton-lab}"
-HOSTS=(argocd headlamp event-generator smoke pipelines-as-code)
+HOSTS=(argocd headlamp event-generator smoke pipelines-as-code tekton)
 
 ok()   { printf '  \033[1;32m✔\033[0m %s\n' "$*"; }
 bad()  { printf '  \033[1;31m✘\033[0m %s\n' "$*"; }

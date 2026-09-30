@@ -1,0 +1,39 @@
+# gitops/apps/tekton-dashboard.yaml
+#
+# Tekton Dashboard (read-only build: upstream's release.yaml runs with
+# --read-only=true, so runs can be viewed but not created/deleted from the
+# UI) from a vendored copy of the upstream manifest, plus its Ingress.
+# One wave after tekton-pipelines.yaml (-2): it lives in that Application's
+# namespace and reads its CRDs. No `directory.recurse: false` — see the note
+# in gitops/apps/tekton-pipelines.yaml.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tekton-dashboard
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  sources:
+    - repoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
+      targetRevision: main
+      path: vendor/tekton-dashboard
+    - repoURL: git@github.com:tilraunastofan/kind-lab-argo-kargo-tekton.git
+      targetRevision: main
+      path: helm/tekton-dashboard/extras
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: tekton-pipelines
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m

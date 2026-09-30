@@ -1,0 +1,30 @@
+# helm/tekton-dashboard/extras/ingress.yaml
+#
+# Exposes the Tekton Dashboard (installed read-only from
+# vendor/tekton-dashboard/release.yaml) at tekton.tekton-lab.test. Same
+# ingress-shim pattern as helm/argocd/extras/ingress.yaml: the
+# cert-manager.io/cluster-issuer annotation auto-creates the Certificate.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tekton-dashboard
+  namespace: tekton-pipelines
+  annotations:
+    cert-manager.io/cluster-issuer: step-ca-acme
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - tekton.tekton-lab.test
+      secretName: tekton-dashboard-tls
+  rules:
+    - host: tekton.tekton-lab.test
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: tekton-dashboard
+                port:
+                  number: 9097

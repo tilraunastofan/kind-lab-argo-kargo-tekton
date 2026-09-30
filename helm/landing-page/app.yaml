@@ -136,6 +136,11 @@ data:
           <h2>Tekton Pipelines-as-Code</h2>
           <p>PAC config &amp; webhook target — reacts to pushes on the Forgejo mirror and runs <code>.tekton/pipelinerun.yaml</code>.</p>
         </a>
+        <a class="card" href="https://tekton.tekton-lab.test" target="_blank" rel="noopener">
+          <span class="icon">&#128202;</span>
+          <h2>Tekton Dashboard</h2>
+          <p>Read-only view of PipelineRuns, TaskRuns and their logs.</p>
+        </a>
         <a class="card" href="https://headlamp.tekton-lab.test" target="_blank" rel="noopener">
           <span class="icon">&#128161;</span>
           <h2>Headlamp</h2>

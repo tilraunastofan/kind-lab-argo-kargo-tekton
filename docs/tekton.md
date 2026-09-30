@@ -9,10 +9,14 @@ How CI jobs run in this lab, how to start them, and how to see what they did.
 | Tekton Pipelines | v1.16.0 | `tekton-pipelines` | ArgoCD app `tekton-pipelines` (`vendor/tekton-pipelines/release.yaml`) |
 | Pipelines-as-Code (PAC) | v0.51.0 | `pipelines-as-code` | ArgoCD app `pipelines-as-code` (`vendor/pipelines-as-code/release.yaml`) |
 | PAC `Repository` CR + Ingress | — | `pipelines-as-code` | ArgoCD app `pipelines-as-code-config` (`helm/pipelines-as-code-config`) |
+| Tekton Dashboard (read-only) | v0.72.0 | `tekton-pipelines` | ArgoCD app `tekton-dashboard` (`vendor/tekton-dashboard/release.yaml`, Ingress in `helm/tekton-dashboard/extras/`) |
 
-There is **no Tekton Dashboard** and no `tkn` CLI in the cluster. Monitoring is
-`kubectl`, the optional `tkn` CLI on your Mac, Forgejo's commit statuses, and
-container logs in ClickHouse (see [Monitoring](#monitoring-and-status)).
+The Dashboard is at **https://tekton.tekton-lab.test**. It is read-only (upstream's
+`release.yaml` runs with `--read-only=true`): you can browse runs, tasks and logs,
+but not create or delete them from the UI. PAC is configured with
+`tekton-dashboard-url`, so the details link on Forgejo commit statuses points at the
+run there. Other monitoring is `kubectl`, the optional `tkn` CLI, Forgejo's commit
+statuses, and container logs in ClickHouse (see [Monitoring](#monitoring-and-status)).
 
 ## How a job gets started
 
@@ -91,6 +95,11 @@ kubectl create -f .tekton/pipelinerun.yaml -n pipelines-as-code
 Forgejo for these runs; it is useful for debugging a pipeline without a commit.
 
 ## Monitoring and status
+
+### Tekton Dashboard
+
+https://tekton.tekton-lab.test → *PipelineRuns* (all namespaces) → pick a run for
+per-task status, step logs and the YAML.
 
 ### kubectl
 
