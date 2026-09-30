@@ -52,6 +52,7 @@ Any `.tekton/*.yaml` whose annotations match the event is started. Two exist:
 |---|---|---|
 | `.tekton/pipelinerun.yaml` | push to `main` | minimal hello-world |
 | `.tekton/pull-request.yaml` | PR against `main`, push to `main` | inline pipeline: parallel lint/test, prints PAC variables; fails if the source branch name contains `fail` |
+| `.tekton/build-image-pr.yaml`, `.tekton/build-image-main.yaml` | PR / push to `main`, only for `demo-apps/event-generator/` changes | Docker build with Buildah (see below) |
 | `.tekton/reusable-pipeline.yaml` | PR against `main`, push to `main` | runs the cluster's reusable `demo-pipeline` (see below); same `fail` rule |
 
 **PR demo:**
@@ -99,6 +100,34 @@ not just the offending one. Use Tekton's cluster resolver as that file does
 (`pipelineRef: {resolver: cluster, params: [kind, name, namespace]}`).
 Likewise, PAC's `{{ }}` only substitutes known variables (no expressions; an
 unknown one silently produces no run).
+
+### Docker builds (Buildah → ghcr.io)
+
+`demo-apps/event-generator` is built by Tekton, with no Docker daemon (kind's nodes
+run containerd): the reusable `build-image` Pipeline (`git-clone` → `buildah-build`,
+in `helm/pipelines-as-code-config/templates/build-image.yaml`) is run by two
+PipelineRuns, both filtered to changes under `demo-apps/event-generator/` with a
+PAC CEL expression:
+
+| File | Event | Result |
+|---|---|---|
+| `.tekton/build-image-pr.yaml` | PR against `main` | builds the image, **does not push** (a broken Dockerfile fails the PR check) |
+| `.tekton/build-image-main.yaml` | push to `main` | builds and **pushes** `ghcr.io/tilraunastofan/kind-lab-argo-kargo-tekton/event-generator:<7-char sha>` |
+
+The tag convention matches `scripts/build-and-push.sh`, so Kargo's Warehouse picks
+pushed images up and can promote them: push to `main` → image → Kargo → ArgoCD.
+
+One-time setup for pushing: create a GitHub token with `write:packages`, export it as
+`GHCR_PUSH_TOKEN` (e.g. in `~/.tokens`), then run `scripts/ghcr-push-secret-up.sh`
+(also called by `bootstrap.sh`; it skips with a warning when the variable is unset).
+That creates the `ghcr-push` Secret in `pipelines-as-code`. Without it, PR builds still
+work and only the push-to-main run fails, with a message saying so.
+
+How it works, in case it needs debugging: `git-clone` uses the per-run secret PAC
+creates (`{{ git_auth_secret }}`) and the `pac-controller-ca-bundle` ConfigMap (so git
+trusts `git.local`'s Caddy cert); `buildah-build` runs as root with `vfs` storage and
+`--isolation chroot`, which works unprivileged in kind. Images cache nothing between
+runs, so every build pulls its base images again (about a minute).
 
 ### 3. Re-running
 

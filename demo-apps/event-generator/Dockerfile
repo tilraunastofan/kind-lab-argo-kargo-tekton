@@ -40,3 +40,5 @@ COPY --from=build /out/event-generator /event-generator
 # service.yaml) targeting this same containerPort: 8080.
 EXPOSE 8080
 ENTRYPOINT ["/event-generator"]
+
+# Built by Tekton (.tekton/build-image-*.yaml) on PRs and pushes to main.

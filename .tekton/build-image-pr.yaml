@@ -1,0 +1,52 @@
+# .tekton/build-image-pr.yaml
+#
+# PR check: build the event-generator image, do not push.
+# Runs the cluster's reusable `build-image` Pipeline (helm/pipelines-as-code-config/
+# templates/build-image.yaml) through the cluster resolver (see
+# reusable-pipeline.yaml for why a plain pipelineRef breaks PAC).
+# Only fires for changes under demo-apps/event-generator/.
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: build-image-pr-
+  annotations:
+    pipelinesascode.tekton.dev/on-cel-expression: |
+      event == "pull_request" && target_branch == "main" &&
+      files.all.exists(f, f.matches("^demo-apps/event-generator/"))
+    pipelinesascode.tekton.dev/max-keep-runs: "10"
+spec:
+  pipelineRef:
+    resolver: cluster
+    params:
+      - name: kind
+        value: pipeline
+      - name: name
+        value: build-image
+      - name: namespace
+        value: pipelines-as-code
+  params:
+    - name: repo-url
+      value: "{{ repo_url }}"
+    - name: revision
+      value: "{{ revision }}"
+    - name: image-repo
+      value: ghcr.io/tilraunastofan/kind-lab-argo-kargo-tekton/event-generator
+    - name: context-dir
+      value: demo-apps/event-generator
+    - name: push
+      value: "false"
+  workspaces:
+    - name: source
+      volumeClaimTemplate:
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 2Gi
+    - name: basic-auth
+      secret:
+        secretName: "{{ git_auth_secret }}"
+    - name: dockerconfig
+      secret:
+        secretName: ghcr-push
+        optional: true
