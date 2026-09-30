@@ -53,9 +53,21 @@ main() {
   else
     log "installing step-ca root CA into the forgejo container"
     scp "${HOME}/.step/certs/root_ca.crt" "${FORGEJO_HOST_SSH}:/tmp/stepca-root.crt" >/dev/null
-    ssh "${FORGEJO_HOST_SSH}" "docker cp /tmp/stepca-root.crt forgejo:/usr/local/share/ca-certificates/stepca-root.crt && docker exec -u root forgejo sh -c 'chmod 644 /usr/local/share/ca-certificates/stepca-root.crt && update-ca-certificates'"
+    ssh "${FORGEJO_HOST_SSH}" "docker cp /tmp/stepca-root.crt forgejo:/usr/local/share/ca-certificates/stepca-root.crt && docker exec -u root forgejo sh -c 'chmod 644 /usr/local/share/ca-certificates/stepca-root.crt && update-ca-certificates' && docker restart forgejo"
+    # Forgejo (Go) reads the system trust store once at startup, so a new root only takes effect after a restart.
+    warn "forgejo was restarted to load the new step-ca root"
   fi
 
+  log "checking webhook.ALLOWED_HOST_LIST in Forgejo's app.ini"
+  if ssh "${FORGEJO_HOST_SSH}" "docker exec forgejo grep -q ALLOWED_HOST_LIST /data/gitea/conf/app.ini" 2>/dev/null; then
+    log "ALLOWED_HOST_LIST already configured, skipping (edit app.ini by hand and restart forgejo if the LAN subnet changes)"
+  else
+    log "adding [webhook] ALLOWED_HOST_LIST to app.ini and restarting forgejo"
+    ssh "${FORGEJO_HOST_SSH}" "docker exec forgejo sh -c 'printf \"\\n[webhook]\\nALLOWED_HOST_LIST = 192.168.1.0/24,pipelines-as-code.tekton-lab.test\\n\" >> /data/gitea/conf/app.ini' && docker restart forgejo"
+    warn "forgejo was restarted — if it publishes a dynamic Docker port (docker inspect forgejo), your reverse proxy in front of git.local may need its upstream port updated"
+  fi
+
+  # Must come LAST: `docker restart forgejo` above regenerates the container's /etc/hosts.
   MAC_LAN_IP_CACHE="$(current_lan_ip)"
   [ -n "${MAC_LAN_IP_CACHE}" ] || die "could not determine this Mac's LAN IP"
 
@@ -69,15 +81,6 @@ main() {
   else
     log "setting pipelines-as-code.tekton-lab.test -> ${MAC_LAN_IP_CACHE} in the forgejo container's /etc/hosts"
     ssh "${FORGEJO_HOST_SSH}" "docker exec -u root forgejo sh -c 'grep -v pipelines-as-code.tekton-lab.test /etc/hosts > /tmp/hosts.new; echo \"${MAC_LAN_IP_CACHE} pipelines-as-code.tekton-lab.test\" >> /tmp/hosts.new; cat /tmp/hosts.new > /etc/hosts'"
-  fi
-
-  log "checking webhook.ALLOWED_HOST_LIST in Forgejo's app.ini"
-  if ssh "${FORGEJO_HOST_SSH}" "docker exec forgejo grep -q ALLOWED_HOST_LIST /data/gitea/conf/app.ini" 2>/dev/null; then
-    log "ALLOWED_HOST_LIST already configured, skipping (edit app.ini by hand and restart forgejo if the LAN subnet changes)"
-  else
-    log "adding [webhook] ALLOWED_HOST_LIST to app.ini and restarting forgejo"
-    ssh "${FORGEJO_HOST_SSH}" "docker exec forgejo sh -c 'printf \"\\n[webhook]\\nALLOWED_HOST_LIST = 192.168.1.0/24,pipelines-as-code.tekton-lab.test\\n\" >> /data/gitea/conf/app.ini' && docker restart forgejo"
-    warn "forgejo was restarted — if it publishes a dynamic Docker port (docker inspect forgejo), your reverse proxy in front of git.local may need its upstream port updated"
   fi
 
   log "pac-forgejo-trust-up complete"

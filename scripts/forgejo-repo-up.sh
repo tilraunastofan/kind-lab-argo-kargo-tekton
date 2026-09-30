@@ -4,7 +4,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/lib.sh
 source "${SCRIPT_DIR}/lib.sh"
 
-FORGEJO_URL="https://git.local"
+# Override (e.g. the Tailscale URL) when this Mac does not trust git.local's Caddy cert.
+FORGEJO_URL="${FORGEJO_URL:-https://git.local}"
 FORGEJO_REPO_NAME="kind-lab-argo-kargo-tekton"
 
 # Ensures a kind-lab-argo-kargo-tekton repo exists on the user's
