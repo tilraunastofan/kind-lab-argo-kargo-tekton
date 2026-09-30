@@ -33,3 +33,7 @@ go.work.sum
 
 # superpowers subagent-driven-development scratch workspace
 .superpowers/sdd/
+
+.DS_Store/
+.DS_Store
+
