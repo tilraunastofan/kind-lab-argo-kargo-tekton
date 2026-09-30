@@ -1,0 +1,133 @@
+# helm/pipelines-as-code-config/templates/demo-pipeline.yaml
+#
+# Reusable Tekton resources for the demo — these are real, named `Task` and
+# `Pipeline` objects in the cluster, so they show up in the Tekton
+# Dashboard's Tasks and Pipelines views (unlike .tekton/*.yaml pipelines
+# that define everything inline in the PipelineRun). .tekton/reusable-pipeline.yaml
+# runs the Pipeline via `pipelineRef`.
+#
+# NOTE: this file is a Helm template, so anything containing two opening
+# braces would be interpreted by Helm; Tekton's $(params.x) syntax is safe.
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: greet
+  namespace: pipelines-as-code
+spec:
+  description: Prints who/what triggered the run.
+  params:
+    - name: revision
+      description: Git commit SHA being built
+    - name: branch
+      description: Source branch
+    - name: sender
+      description: Who pushed / opened the PR
+  steps:
+    - name: print
+      image: alpine:3.20
+      script: |
+        #!/bin/sh
+        echo "commit: $(params.revision)"
+        echo "branch: $(params.branch)"
+        echo "by:     $(params.sender)"
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: run-check
+  namespace: pipelines-as-code
+spec:
+  description: Pretends to run a named check; fails if the given branch name contains "fail".
+  params:
+    - name: check-name
+      description: Name of the check (lint, test, ...)
+    - name: duration
+      description: Seconds to "work" for
+      default: "5"
+    - name: fail-on-branch
+      description: Branch name to test; the check fails if it contains "fail"
+      default: ""
+  results:
+    - name: outcome
+      description: ok or failed
+  steps:
+    - name: check
+      image: alpine:3.20
+      script: |
+        #!/bin/sh
+        echo "running $(params.check-name) for $(params.duration)s..."
+        sleep $(params.duration)
+        case "$(params.fail-on-branch)" in
+          *fail*)
+            echo "$(params.check-name) FAILED (branch name contains 'fail')"
+            printf failed > $(results.outcome.path)
+            exit 1 ;;
+        esac
+        echo "$(params.check-name) ok"
+        printf ok > $(results.outcome.path)
+---
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: demo-pipeline
+  namespace: pipelines-as-code
+spec:
+  description: >-
+    Reusable demo pipeline: greet, then lint and test in parallel, then a
+    summary. The test step fails when the branch name contains "fail".
+  params:
+    - name: revision
+      type: string
+    - name: branch
+      type: string
+    - name: sender
+      type: string
+  tasks:
+    - name: greet
+      taskRef:
+        name: greet
+      params:
+        - name: revision
+          value: $(params.revision)
+        - name: branch
+          value: $(params.branch)
+        - name: sender
+          value: $(params.sender)
+    - name: lint
+      runAfter: [greet]
+      taskRef:
+        name: run-check
+      params:
+        - name: check-name
+          value: lint
+        - name: duration
+          value: "4"
+    - name: test
+      runAfter: [greet]
+      taskRef:
+        name: run-check
+      params:
+        - name: check-name
+          value: test
+        - name: duration
+          value: "8"
+        - name: fail-on-branch
+          value: $(params.branch)
+    - name: summary
+      runAfter: [lint, test]
+      params:
+        - name: lint
+          value: $(tasks.lint.results.outcome)
+        - name: test
+          value: $(tasks.test.results.outcome)
+      taskSpec:
+        params:
+          - name: lint
+          - name: test
+        steps:
+          - name: report
+            image: alpine:3.20
+            script: |
+              #!/bin/sh
+              echo "lint: $(params.lint)"
+              echo "test: $(params.test)"

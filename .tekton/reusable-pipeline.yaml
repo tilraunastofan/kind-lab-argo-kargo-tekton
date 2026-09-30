@@ -1,0 +1,25 @@
+# .tekton/reusable-pipeline.yaml
+#
+# Runs the cluster's reusable `demo-pipeline` Pipeline (defined in
+# helm/pipelines-as-code-config/templates/demo-pipeline.yaml, deployed by
+# ArgoCD) through pipelineRef — so it appears under Pipelines/Tasks in the
+# Tekton Dashboard, unlike the inline pipelines next to it. A source branch
+# whose name contains "fail" makes its test task fail.
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: demo-pipeline-
+  annotations:
+    pipelinesascode.tekton.dev/on-event: "[pull_request, push]"
+    pipelinesascode.tekton.dev/on-target-branch: "[main]"
+    pipelinesascode.tekton.dev/max-keep-runs: "10"
+spec:
+  pipelineRef:
+    name: demo-pipeline
+  params:
+    - name: revision
+      value: "{{ revision }}"
+    - name: branch
+      value: "{{ source_branch }}"
+    - name: sender
+      value: "{{ sender }}"
