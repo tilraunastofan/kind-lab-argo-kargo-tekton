@@ -5,7 +5,6 @@
 # turns into a failed status on the commit/PR.
 #
 #   - Open a PR against main on Forgejo -> runs, status shows on the PR.
-#   - Push to main                      -> runs too (event_type = push).
 #   - Name the source branch with "fail" in it (e.g. demo/fail-ci) to see a
 #     failing check; any other branch name passes.
 #   - Comment `/retest` on the PR to re-run it.
@@ -27,7 +26,6 @@ spec:
               image: alpine:3.20
               script: |
                 #!/bin/sh
-                echo "event:    {{ event_type }}"
                 echo "repo:     {{ repo_url }}"
                 echo "branch:   {{ source_branch }} -> {{ target_branch }}"
                 echo "commit:   {{ revision }}"
