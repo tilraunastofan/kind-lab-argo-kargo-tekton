@@ -41,6 +41,8 @@ main() {
   "${SCRIPT_DIR}/kargo-image-cred-up.sh"
 
   "${SCRIPT_DIR}/argocd-up.sh"
+  # Sets ArgoCD's admin password from ARGOCD_ADMIN_PASSWORD in ~/.tokens (generated on first run).
+  "${SCRIPT_DIR}/argocd-admin-up.sh"
   # datadog-secret-up.sh only needs kubectl (no ArgoCD sync involved), so
   # it can run as soon as the cluster exists — placed here, right after
   # ArgoCD comes up, so the datadog-secret Secret always exists before
