@@ -1,9 +1,10 @@
 # Kargo in the lab
 
 Kargo promotes the `event-generator` image from **dev** to **prod**. The UI is at
-**https://kargo.tekton-lab.test**; everything below can also be done with plain
-`kubectl`, because Kargo's objects are ordinary Kubernetes resources. The Kargo CLI is
-not installed in this lab, so these commands use `kubectl` only.
+**https://kargo.tekton-lab.test**. Everything can be done three ways: the UI, the
+`kargo` CLI (`brew install kargo`), or plain `kubectl`, because Kargo's objects are
+ordinary Kubernetes resources. The `kubectl` versions come first below; the CLI
+versions are in [Using the `kargo` CLI](#using-the-kargo-cli).
 
 All Kargo objects live in the project namespace **`kind-lab`** (add `-n kind-lab` or
 set it once: `kubectl config set-context --current --namespace=kind-lab`).
@@ -91,6 +92,56 @@ Replace `honking-lobster` with the alias from `get freight`. Use `create`, not `
 it `Succeeded`, ArgoCD rolls out the new tag in `demo-app`.
 
 The same manifest with `stage: dev` promotes to dev by hand (normally unnecessary).
+
+## Using the `kargo` CLI
+
+Friendlier than raw `kubectl` (shorter output, one-command promotion). Install with
+`brew install kargo`.
+
+> Status: the syntax below comes from `kargo --help` (v1.12.0) and is not yet
+> confirmed against this lab's server, because that needs the admin password.
+> `kargo login --kubeconfig` does **not** work here (verified): it needs a bearer/OIDC
+> token in your kubeconfig, and kind's kubeconfig uses client certificates.
+
+### Log in (once; the token lasts 24h)
+
+```bash
+kargo login https://kargo.tekton-lab.test --admin      # asks for the admin password
+kargo config set-project kind-lab                      # so you can leave out --project
+```
+
+The admin password was printed once by `scripts/kargo-admin-up.sh` during bootstrap
+(only its hash is stored in the `kargo-admin` Secret in namespace `kargo`). If it is
+lost, delete that Secret and re-run `scripts/kargo-admin-up.sh` to generate a new one
+(then restart the `kargo-api` Deployment so it picks it up).
+
+### Look around
+
+```bash
+kargo get stages                 # health + current Freight per stage
+kargo get freight                # every version, with its alias
+kargo get promotions             # history; add --stage=prod to filter
+kargo get warehouses
+```
+
+Without `set-project`, add `--project=kind-lab` to each command.
+
+### Check for a new image now
+
+```bash
+kargo refresh warehouse event-generator
+```
+
+### Promote to prod
+
+```bash
+kargo promote --freight-alias=honking-lobster --stage=prod
+```
+
+Use the alias from `kargo get freight`. `--freight=<full name>` also works. To promote
+whatever Freight the Warehouse would choose automatically, use
+`kargo promote --warehouse=event-generator --stage=prod`. To cancel a running
+promotion: `kargo promote --name=<promotion-name> --abort`.
 
 ## Troubleshooting
 

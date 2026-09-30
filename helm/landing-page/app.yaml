@@ -189,6 +189,8 @@ data:
         <pre>kubectl -n kind-lab get freight&#10;kubectl -n kind-lab get stages&#10;kubectl -n kind-lab get promotions</pre>
         <p>Check for a new image right now:</p>
         <pre>kubectl -n kind-lab annotate warehouse event-generator kargo.akuity.io/refresh="$(date +%s)" --overwrite</pre>
+        <p>Same with the <code>kargo</code> CLI (<code>brew install kargo</code>, then <code>kargo login https://kargo.tekton-lab.test --admin</code>):</p>
+        <pre>kargo get freight --project kind-lab&#10;kargo refresh warehouse event-generator --project kind-lab&#10;kargo promote --project kind-lab --freight-alias=&lt;alias&gt; --stage=prod</pre>
         <p>CI runs (Tekton):</p>
         <pre>kubectl -n pipelines-as-code get pipelineruns&#10;task status</pre>
         <p>More: <code>docs/kargo.md</code> and <code>docs/tekton.md</code> in the repo.</p>
