@@ -16,6 +16,11 @@ tasks:
     cmds:
       - ./scripts/cluster-status.sh
 
+  status:
+    desc: Print the overall status of the lab (nodes, ArgoCD apps, pods, certs, endpoints, host services)
+    cmds:
+      - ./scripts/lab-status.sh
+
   smoke:test:
     desc: Re-run just the smoke-test verification
     cmds:
