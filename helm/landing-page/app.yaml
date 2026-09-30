@@ -105,6 +105,27 @@ data:
           color: var(--accent);
           font-size: 0.85rem;
         }
+        .cheats {
+          max-width: 960px;
+          margin: 3rem auto 0;
+          padding: 1.25rem 1.5rem;
+          background: var(--card);
+          border: 1px solid var(--card-border);
+          border-radius: 12px;
+        }
+        .cheats h2 { margin: 0 0 0.75rem; font-size: 1.15rem; }
+        .cheats p { color: var(--muted); font-size: 0.92rem; margin: 0.9rem 0 0.4rem; }
+        .cheats pre {
+          margin: 0;
+          padding: 0.75rem 1rem;
+          background: var(--bg);
+          border: 1px solid var(--card-border);
+          border-radius: 8px;
+          overflow-x: auto;
+          font-size: 0.85rem;
+          color: var(--text);
+        }
+        .cheats code { color: var(--accent); }
         footer {
           max-width: 960px;
           margin: 3rem auto 0;
@@ -162,6 +183,16 @@ data:
           <p>Minimal nginx app used to verify ingress + TLS end-to-end on every cluster bring-up.</p>
         </a>
       </main>
+      <section class="cheats">
+        <h2>Handy commands</h2>
+        <p>Did a new image arrive, and where is it running? (Kargo, project <code>kind-lab</code>)</p>
+        <pre>kubectl -n kind-lab get freight&#10;kubectl -n kind-lab get stages&#10;kubectl -n kind-lab get promotions</pre>
+        <p>Check for a new image right now:</p>
+        <pre>kubectl -n kind-lab annotate warehouse event-generator kargo.akuity.io/refresh="$(date +%s)" --overwrite</pre>
+        <p>CI runs (Tekton):</p>
+        <pre>kubectl -n pipelines-as-code get pipelineruns&#10;task status</pre>
+        <p>More: <code>docs/kargo.md</code> and <code>docs/tekton.md</code> in the repo.</p>
+      </section>
       <footer>
         Served from <code>helm/landing-page</code> in
         <a href="https://github.com/tilraunastofan/kind-lab-argo-kargo-tekton" target="_blank" rel="noopener">kind-lab-argo-kargo-tekton</a>.
