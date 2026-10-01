@@ -105,7 +105,7 @@ The GitOps source repo is `https://github.com/tilraunastofan/kind-lab-argo-kargo
 All cluster container logs are shipped to a ClickHouse that runs outside the cluster, as a plain Docker container (`clickhouse-logs`) on this Mac, attached to kind's Docker network (`scripts/clickhouse-logs-up.sh`, run by `task cluster:up` right after the cluster exists). Inside the cluster, a Vector DaemonSet in the `logging` namespace (`gitops/apps/vector.yaml`, `helm/vector`) reads every node's pod log files, including the control-plane node's, and inserts them into `logs.logs`. Vector excludes its own pod's logs so insert errors can't feed back into the table. Design: `docs/superpowers/specs/2026-09-28-host-clickhouse-log-collection-design.md`.
 
 - `task logs-db:up` — start or repair the container (idempotent; re-attaches it to the `kind` network). Needs the cluster to exist, since kind creates that network.
-- `task logs-db:down` — remove the container but keep its data volume (`clickhouse-logs-data`).
+- `task logs-db:down` — remove the container but keep its data volumes (`clickstack-ch-data`, `clickstack-mongo-data`).
 - `task logs-db:purge` — delete the container and the data volume, i.e. all stored logs.
 
 The two passwords (`CLICKHOUSE_LOGS_ADMIN_PASSWORD` for the `admin` user, `CLICKHOUSE_LOGS_VECTOR_PASSWORD` for Vector's insert-only `vector` user) are generated automatically into `~/.tokens` on first run; nothing to export by hand. `chmod 600 ~/.tokens` is recommended, and the script warns if it has to append to a group/other-accessible file. To query:

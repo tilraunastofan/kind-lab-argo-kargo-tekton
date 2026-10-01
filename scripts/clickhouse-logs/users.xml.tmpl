@@ -1,0 +1,38 @@
+<clickhouse>
+  <!-- Rendered by scripts/clickhouse-logs-up.sh (envsubst of the two *_SHA256
+       variables) and mounted at /etc/clickhouse-server/users.d/lab-users.xml.
+       Defined here rather than with SQL because the ClickStack all-in-one
+       image's `default` user is localhost-only and cannot CREATE USER. -->
+  <users>
+    <!-- You: querying from the Mac, `docker exec ... clickhouse-client`, the UI's play page. -->
+    <admin>
+      <password_sha256_hex>${ADMIN_SHA256}</password_sha256_hex>
+      <networks><ip>::/0</ip></networks>
+      <profile>default</profile>
+      <quota>default</quota>
+      <access_management>1</access_management>
+    </admin>
+
+    <!-- Vector's identity: can append rows to logs.logs and do nothing else. -->
+    <vector>
+      <password_sha256_hex>${VECTOR_SHA256}</password_sha256_hex>
+      <networks><ip>::/0</ip></networks>
+      <profile>default</profile>
+      <quota>default</quota>
+      <grants>
+        <query>GRANT INSERT ON logs.logs</query>
+      </grants>
+    </vector>
+
+    <!-- The image ships these two with hard-coded passwords (api/api,
+         worker/worker) reachable from ANY address. ClickStack's own
+         processes connect over localhost (ch-server -> 127.0.0.1), so pin
+         them there: pods on the kind network can't use them. -->
+    <api>
+      <networks replace="replace"><ip>127.0.0.1</ip><ip>::1</ip></networks>
+    </api>
+    <worker>
+      <networks replace="replace"><ip>127.0.0.1</ip><ip>::1</ip></networks>
+    </worker>
+  </users>
+</clickhouse>

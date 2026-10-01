@@ -8,7 +8,8 @@ first use by `ensure_token` in `scripts/lib.sh`. Show one with
 |---|---|---|---|
 | ArgoCD `admin` password | `ARGOCD_ADMIN_PASSWORD` | https://argocd.tekton-lab.test, username `admin` | `scripts/argocd-admin-up.sh` |
 | Kargo `admin` password | `KARGO_ADMIN_PASSWORD` | https://kargo.tekton-lab.test and `kargo login --admin` | `scripts/kargo-admin-up.sh` |
-| ClickHouse logs passwords | `CLICKHOUSE_LOGS_ADMIN_PASSWORD`, `CLICKHOUSE_LOGS_VECTOR_PASSWORD` | host ClickHouse (`clickhouse-logs`) | `scripts/clickhouse-logs-up.sh` |
+| ClickHouse logs passwords | `CLICKHOUSE_LOGS_ADMIN_PASSWORD`, `CLICKHOUSE_LOGS_VECTOR_PASSWORD` | host ClickHouse/ClickStack (`clickhouse-logs`), see [logs.md](logs.md) | `scripts/clickhouse-logs-up.sh` |
+| ClickStack UI account | (chosen by you on first visit to http://localhost:8080) | ClickStack UI | created in the UI |
 | Forgejo token | `FORGEJO_TOKEN` | Forgejo API, `git push forgejo` | created by hand |
 | GHCR push token | `GHCR_PUSH_TOKEN` | Tekton pushing images (`ghcr-push` Secret) | created by hand, `scripts/ghcr-push-secret-up.sh` |
 

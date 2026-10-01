@@ -1,6 +1,5 @@
--- Applied by scripts/clickhouse-logs-up.sh through `envsubst` (only the one
--- variable below is substituted) on EVERY run, so everything here must be
--- idempotent.
+-- Applied by scripts/clickhouse-logs-up.sh on EVERY run, so everything here
+-- must be idempotent.
 
 CREATE DATABASE IF NOT EXISTS logs;
 
@@ -23,9 +22,6 @@ PARTITION BY toDate(timestamp)
 ORDER BY (namespace, pod, timestamp)
 TTL toDateTime(timestamp) + INTERVAL 14 DAY;
 
--- Vector's identity: it can append rows to logs.logs and do nothing else.
--- CREATE USER IF NOT EXISTS + ALTER USER together give "create it, and keep
--- the password in sync with ~/.tokens if that ever changes".
-CREATE USER IF NOT EXISTS vector IDENTIFIED WITH sha256_password BY '${CLICKHOUSE_LOGS_VECTOR_PASSWORD}';
-ALTER USER vector IDENTIFIED WITH sha256_password BY '${CLICKHOUSE_LOGS_VECTOR_PASSWORD}';
-GRANT INSERT ON logs.logs TO vector;
+-- Users (admin, vector, and the locked-down bundled api/worker) are defined in
+-- scripts/clickhouse-logs/users.xml.tmpl, not here: the ClickStack image's
+-- `default` user is localhost-only and cannot CREATE USER.

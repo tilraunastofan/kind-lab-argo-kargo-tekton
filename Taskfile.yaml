@@ -27,7 +27,7 @@ tasks:
       - ./scripts/smoke-test.sh
 
   logs-db:up:
-    desc: Start/repair the host ClickHouse container that stores cluster logs (needs the kind network)
+    desc: Start/repair the host ClickStack (ClickHouse + UI at http://localhost:8080) container that stores cluster logs (needs the kind network)
     cmds:
       - ./scripts/clickhouse-logs-up.sh
 
@@ -37,7 +37,7 @@ tasks:
       - docker rm -f clickhouse-logs
 
   logs-db:purge:
-    desc: DELETE all stored logs — removes the clickhouse-logs container and its data volume
+    desc: DELETE all stored logs and the ClickStack UI state — removes the clickhouse-logs container and its data volumes
     cmds:
       - docker rm -f clickhouse-logs
-      - docker volume rm clickhouse-logs-data
+      - docker volume rm clickstack-ch-data clickstack-mongo-data
