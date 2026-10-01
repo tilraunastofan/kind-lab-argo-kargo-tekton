@@ -100,6 +100,10 @@ main() {
   log "applying schema"
   ch_query --multiquery < "${SCRIPT_DIR}/clickhouse-logs/schema.sql"
 
+  # Point the ClickStack UI at logs.logs. Non-fatal: it needs a UI account
+  # (created by hand on first visit), so on a fresh volume it just prints a hint.
+  "${SCRIPT_DIR}/clickstack-source-up.sh" || warn "clickstack-source-up.sh failed; re-run it by hand"
+
   log "clickhouse-logs ready (network ${NETWORK}, http://clickhouse-logs:8123, Mac: http://127.0.0.1:8123, ClickStack UI: http://localhost:8080)"
 }
 

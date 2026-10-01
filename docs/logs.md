@@ -30,15 +30,20 @@ because the bundled `default` user can't `CREATE USER`.
 
 1. Open http://localhost:8080 and **create an account** (any email/password; it is stored
    only in the local MongoDB volume).
-2. The UI ships with sources for its own OpenTelemetry tables (`default.otel_logs`, ...),
-   which are empty here. Our logs live in the custom table `logs.logs`, so add a source
-   once: *Team Settings → Sources → Add source → Logs*, connection **Local ClickHouse**,
-   database `logs`, table `logs`, timestamp column `timestamp`, and map the body/message
-   expression to `message`, service name to `container`, and attributes to `labels`
-   (exact field names depend on the UI version).
-   The image hard-codes its default sources, so this cannot be pre-configured by env var.
+2. Run `scripts/clickstack-source-up.sh` (`task logs-db:up` does it too). It adds a
+   **Cluster logs** source for the custom table `logs.logs`; pick it in *Search*. Without
+   it, Search queries the UI's built-in `default.otel_logs` table, which stays empty here
+   (our logs don't go through the OpenTelemetry collector), so you see no results.
+   The image hard-codes its default sources and ignores env overrides, so the script writes
+   the source straight into the UI's MongoDB, copying the built-in "Logs" source's
+   structure. It needs the account from step 1 (that creates the team the source belongs
+   to) and is safe to re-run; it re-applies its settings each time.
 
-Other ways in, no setup: `http://127.0.0.1:8123/play` (login `admin`), or
+   Field mapping: timestamp → `timestamp`, body → `message`, service → `container`,
+   resource attributes → `labels` (pod labels), event attributes → `fields` (keys of JSON
+   log lines), severity → the JSON `level` field if present, else `info`.
+
+Other ways in, no setup (no UI account needed): `http://127.0.0.1:8123/play` (login `admin`), or
 `clickhouse-client` as above.
 
 ## Notes
