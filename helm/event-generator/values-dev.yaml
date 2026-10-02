@@ -8,4 +8,4 @@
 namespace: demo-app-dev
 
 image:
-  tag: c0dd860
+  tag: b7b0457
