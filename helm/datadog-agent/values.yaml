@@ -34,3 +34,10 @@ kubeletTlsVerify: false
 # Live Process collection (processes on each node, shown under Infrastructure
 # > Processes in Datadog). Set false to turn it off.
 liveProcessCollection: true
+
+# Log collection (Datadog Log Management). containerCollectAll: false means
+# only pods annotated with ad.datadoghq.com/<container>.logs are collected;
+# set it to true to collect every container's logs.
+logCollection:
+  enabled: true
+  containerCollectAll: false

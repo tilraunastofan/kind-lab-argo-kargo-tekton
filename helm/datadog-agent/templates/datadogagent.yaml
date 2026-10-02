@@ -33,3 +33,11 @@ spec:
     # Operator adds both to the Node Agent itself, so neither is declared here.
     liveProcessCollection:
       enabled: {{ .Values.liveProcessCollection }}
+    # Log collection with Autodiscovery. With containerCollectAll false, only
+    # pods carrying an `ad.datadoghq.com/<container>.logs` annotation are
+    # collected (opt-in, keeps log volume/cost down); true collects every
+    # container's stdout/stderr. The Operator mounts the node's pod log
+    # directory into the Agent itself.
+    logCollection:
+      enabled: {{ .Values.logCollection.enabled }}
+      containerCollectAll: {{ .Values.logCollection.containerCollectAll }}
