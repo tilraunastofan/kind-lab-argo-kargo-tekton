@@ -77,6 +77,21 @@ spec:
                   key: password
             - name: HIGH_LOAD_DURATION_SECONDS
               value: {{ .Values.highLoadDurationSeconds | quote }}
+            # Datadog APM (dd-trace-go in main.go reads these). The tracer
+            # sends to the Node Agent on the SAME node, reachable at the
+            # node's IP via the Agent's hostPort 8126 (features.apm in
+            # helm/datadog-agent). Go can't be auto-instrumented by the
+            # Datadog Operator, so the app creates its own spans.
+            - name: DD_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: DD_SERVICE
+              value: "event-generator"
+            - name: DD_ENV
+              value: {{ .Values.datadogEnv | quote }}
+            - name: DD_VERSION
+              value: {{ .Values.image.tag | quote }}
           # readinessProbe: an HTTP GET to /healthz on a timer. Failing
           # this doesn't restart the Pod — it just removes it from the
           # Service's endpoint list, so no traffic gets routed here until

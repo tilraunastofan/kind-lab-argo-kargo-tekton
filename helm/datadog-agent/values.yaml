@@ -41,3 +41,8 @@ liveProcessCollection: true
 logCollection:
   enabled: true
   containerCollectAll: false
+
+# APM trace intake on the Node Agent (hostPort 8126). Apps opt in by running a
+# tracer that points at their node's IP (see helm/event-generator).
+apm:
+  enabled: true

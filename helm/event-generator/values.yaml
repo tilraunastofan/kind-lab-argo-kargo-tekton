@@ -27,3 +27,7 @@ image:
 clickhouseAddr: clickhouse-clickhouse-headless.demo-app.svc.cluster.local:9000
 
 highLoadDurationSeconds: 30
+
+# Datadog APM "env" tag for this deployment (DD_ENV). demo-app is the lab's
+# "prod" stage; values-dev.yaml overrides it for demo-app-dev.
+datadogEnv: prod

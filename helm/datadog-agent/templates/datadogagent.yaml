@@ -41,3 +41,13 @@ spec:
     logCollection:
       enabled: {{ .Values.logCollection.enabled }}
       containerCollectAll: {{ .Values.logCollection.containerCollectAll }}
+    # APM trace intake. Go apps send spans themselves (dd-trace-go); the
+    # Operator's single-step auto-instrumentation does not cover Go, so
+    # features.apm.instrumentation is deliberately not enabled. The Agent
+    # listens on hostPort 8126 so a pod can reach its own node's Agent at
+    # $(status.hostIP):8126.
+    apm:
+      enabled: {{ .Values.apm.enabled }}
+      hostPortConfig:
+        enabled: true
+        hostPort: 8126

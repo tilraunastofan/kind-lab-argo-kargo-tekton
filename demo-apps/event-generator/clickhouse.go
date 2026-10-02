@@ -15,7 +15,10 @@ import (
 	// pattern used by every database/sql driver in Go (lib/pq, go-sqlite3,
 	// etc.) — database/sql defines the interface, the driver package wires
 	// itself in.
-	_ "github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse "github.com/ClickHouse/clickhouse-go/v2"
+	// Datadog APM: wraps the driver so every query becomes a span (child of
+	// the caller's span, see WithChildSpansOnly below).
+	sqltrace "github.com/DataDog/dd-trace-go/contrib/database/sql/v2"
 )
 
 // EventInserter is the seam between "how do we get an Event into storage"
@@ -58,10 +61,21 @@ func NewClickhouseClient(ctx context.Context, addr, user, password string) (*Cli
 	if user != "" {
 		dsn = fmt.Sprintf("clickhouse://%s:%s@%s/demo", url.QueryEscape(user), url.QueryEscape(password), addr)
 	}
-	db, err := sql.Open("clickhouse", dsn)
+	// Parse the DSN and open through the Datadog-traced connector instead of
+	// sql.Open("clickhouse", dsn): that is the only way to wrap the driver
+	// without registering a second driver name. Behavior is otherwise the
+	// same; with no tracer started (DD_TRACE_ENABLED=false) the wrapper is a
+	// cheap pass-through.
+	opts, err := clickhouse.ParseDSN(dsn)
 	if err != nil {
-		return nil, fmt.Errorf("opening clickhouse connection: %w", err)
+		return nil, fmt.Errorf("parsing clickhouse dsn: %w", err)
 	}
+	db := sqltrace.OpenDB(clickhouse.Connector(opts),
+		sqltrace.WithService("event-generator-clickhouse"),
+		// Only trace queries that run inside a request/insert span, so the
+		// startup ping and schema DDL don't show up as orphan traces.
+		sqltrace.WithChildSpansOnly(),
+	)
 	// sql.Open doesn't actually dial anything — it just validates the DSN
 	// and prepares a lazy connection pool. PingContext is what forces a
 	// real round-trip, which is why we call it explicitly here.

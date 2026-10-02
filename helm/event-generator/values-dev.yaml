@@ -9,3 +9,5 @@ namespace: demo-app-dev
 
 image:
   tag: c0dd860
+
+datadogEnv: dev
