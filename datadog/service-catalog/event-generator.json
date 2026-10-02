@@ -1,0 +1,28 @@
+{
+  "apiVersion": "v3",
+  "kind": "service",
+  "metadata": {
+    "name": "event-generator",
+    "displayName": "Event Generator",
+    "description": "Go demo app that writes synthetic events into ClickHouse at a low background rate, with a UI/API-triggered high-load burst.",
+    "tags": ["lang:go", "lab:tekton-lab"],
+    "links": [
+      { "name": "UI", "type": "other", "url": "https://event-generator.tekton-lab.test" },
+      { "name": "Source", "type": "repo", "provider": "github", "url": "https://github.com/tilraunastofan/kind-lab-argo-kargo-tekton/tree/main/demo-apps/event-generator" }
+    ]
+  },
+  "spec": {
+    "lifecycle": "experimental",
+    "tier": "4",
+    "type": "web",
+    "languages": ["go"]
+  },
+  "datadog": {
+    "codeLocations": [
+      {
+        "repositoryURL": "https://github.com/tilraunastofan/kind-lab-argo-kargo-tekton",
+        "paths": ["demo-apps/event-generator/**"]
+      }
+    ]
+  }
+}
