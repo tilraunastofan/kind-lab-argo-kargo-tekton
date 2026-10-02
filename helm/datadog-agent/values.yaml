@@ -30,3 +30,7 @@ credentialsSecretKey: api-key
 # Agent via the DatadogAgent CRD's `spec.global.kubelet.hostCAPath` — was
 # skipped as unnecessary complexity for a lab-only workaround.
 kubeletTlsVerify: false
+
+# Live Process collection (processes on each node, shown under Infrastructure
+# > Processes in Datadog). Set false to turn it off.
+liveProcessCollection: true

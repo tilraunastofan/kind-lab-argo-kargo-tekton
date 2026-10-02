@@ -26,3 +26,10 @@ spec:
     # crash-loops unable to determine its own hostname.
     kubelet:
       tlsVerify: {{ .Values.kubeletTlsVerify }}
+  features:
+    # Live Process collection. Same effect as setting
+    # DD_PROCESS_CONFIG_PROCESS_COLLECTION_ENABLED=true plus mounting the
+    # host's /etc/passwd read-only into the Agent (for user names): the
+    # Operator adds both to the Node Agent itself, so neither is declared here.
+    liveProcessCollection:
+      enabled: {{ .Values.liveProcessCollection }}
