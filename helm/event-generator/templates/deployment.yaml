@@ -34,6 +34,12 @@ spec:
   # default.
   template:
     metadata:
+      # Opts this container's stdout/stderr into Datadog log collection
+      # (features.logCollection in helm/datadog-agent, containerCollectAll
+      # is off, so only annotated pods are collected). The key's middle
+      # segment must equal the container name below.
+      annotations:
+        ad.datadoghq.com/event-generator.logs: '[{"source":"go","service":"event-generator"}]'
       labels:
         app: event-generator
     spec:
