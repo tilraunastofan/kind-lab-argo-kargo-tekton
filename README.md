@@ -72,7 +72,7 @@ Also required: the `GHCR_PULL_TOKEN` and `FORGEJO_TOKEN` env vars (a
 None are checked up front — each corresponding `*-secret-up.sh`/`*-repo-up.sh`
 script `die`s partway through bootstrap if its env var is unset.
 
-Datadog is on by default (Free tier covers the two worker nodes), so
+Datadog is on by default (Free tier covers the single worker node), so
 `DATADOG_API_KEY` must be exported. To opt out, export
 `DATADOG_ENABLED=false` and move its Applications into
 `gitops/apps-disabled/` (see that README).
@@ -100,9 +100,11 @@ Run the printed command, then just re-run `task cluster:up` — it picks up wher
 
 The GitOps source repo is `https://github.com/tilraunastofan/kind-lab-argo-kargo-tekton` (private) — ArgoCD's Applications pull from this same repo's `main` branch (whether declared statically under `gitops/apps/` or rendered from `gitops/apps-templates/` at bootstrap time, see "Cluster GitOps" above). Going forward, a `git push` to `main` is what triggers ArgoCD's auto-sync for the Helm charts those Applications reference. Re-running `task cluster:up` only re-applies the root App-of-Apps pointer — it does not redeploy changes to those Applications' own content; ArgoCD's own continuous reconciliation handles that.
 
-### Log collection (Vector → host ClickHouse)
+### Log collection (Vector → host ClickHouse) — optional, off by default
 
-All cluster container logs are shipped to a ClickHouse that runs outside the cluster, as a plain Docker container (`clickhouse-logs`) on this Mac, attached to kind's Docker network (`scripts/clickhouse-logs-up.sh`, run by `task cluster:up` right after the cluster exists). Inside the cluster, a Vector DaemonSet in the `logging` namespace (`gitops/apps/vector.yaml`, `helm/vector`) reads every node's pod log files, including the control-plane node's, and inserts them into `logs.logs`. Vector excludes its own pod's logs so insert errors can't feed back into the table. Design: `docs/superpowers/specs/2026-09-28-host-clickhouse-log-collection-design.md`.
+Disabled while Datadog is being tested. To enable: `git mv gitops/apps-disabled/vector.yaml gitops/apps/`, push, and export `LOGS_ENABLED=true` for `task cluster:up` (or run `task logs-db:up` and `scripts/vector-secret-up.sh` on a running cluster). To disable again, reverse that and delete the `logging` namespace by hand. The rest of this section describes the enabled state.
+
+When enabled, all cluster container logs are shipped to a ClickHouse that runs outside the cluster, as a plain Docker container (`clickhouse-logs`) on this Mac, attached to kind's Docker network (`scripts/clickhouse-logs-up.sh`, run by `task cluster:up` right after the cluster exists). Inside the cluster, a Vector DaemonSet in the `logging` namespace (`gitops/apps/vector.yaml`, `helm/vector`) reads every node's pod log files, including the control-plane node's, and inserts them into `logs.logs`. Vector excludes its own pod's logs so insert errors can't feed back into the table. Design: `docs/superpowers/specs/2026-09-28-host-clickhouse-log-collection-design.md`.
 
 - `task logs-db:up` — start or repair the container (idempotent; re-attaches it to the `kind` network). Needs the cluster to exist, since kind creates that network.
 - `task logs-db:down` — remove the container but keep its data volumes (`clickstack-ch-data`, `clickstack-mongo-data`).

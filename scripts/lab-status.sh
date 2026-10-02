@@ -92,7 +92,7 @@ section "Host services"
 if docker ps --format '{{.Names}}' | grep -qx clickhouse-logs; then
   ok "clickhouse-logs container running"
 else
-  bad "clickhouse-logs container not running (run: task logs-db:up)"
+  meh "clickhouse-logs container not running (optional; LOGS_ENABLED=true, task logs-db:up)"
 fi
 if pgrep -f 'step-ca' >/dev/null 2>&1; then ok "step-ca running"; else bad "step-ca not running"; fi
 echo

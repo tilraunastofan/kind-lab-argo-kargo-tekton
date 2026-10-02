@@ -14,7 +14,13 @@ main() {
   # AFTER cluster-up.sh because the `kind` network only exists once kind has
   # created the cluster, and it re-attaches the container to that network on
   # every rebuild. Independent of ArgoCD, so it can run this early.
-  "${SCRIPT_DIR}/clickhouse-logs-up.sh"
+  # Optional: off by default (LOGS_ENABLED=true to opt in; also move
+  # gitops/apps-disabled/vector.yaml back into gitops/apps/).
+  if [ "${LOGS_ENABLED:-false}" = "true" ]; then
+    "${SCRIPT_DIR}/clickhouse-logs-up.sh"
+  else
+    log "Log collection disabled (LOGS_ENABLED != true), skipping clickhouse-logs-up.sh"
+  fi
   # The three kargo-*-up.sh scripts run here, BEFORE argocd-up.sh, and
   # deliberately NOT grouped with datadog-secret-up.sh/registry-secret-up.sh
   # below (which only need kubectl too, but are harmless to run either side
@@ -60,7 +66,11 @@ main() {
   # ArgoCD syncs gitops/apps/vector.yaml so the vector-clickhouse Secret
   # exists when Vector's pods first start. Reads the password that
   # clickhouse-logs-up.sh generated into ~/.tokens (via ensure_token).
-  "${SCRIPT_DIR}/vector-secret-up.sh"
+  if [ "${LOGS_ENABLED:-false}" = "true" ]; then
+    "${SCRIPT_DIR}/vector-secret-up.sh"
+  else
+    log "Log collection disabled (LOGS_ENABLED != true), skipping vector-secret-up.sh"
+  fi
   # Same reasoning as datadog-secret-up.sh above: registry-secret-up.sh
   # only needs kubectl, so it can run this early too — placed here so the
   # ghcr-pull imagePullSecret always exists before event-generator's

@@ -4,7 +4,7 @@ All container logs from the cluster are shipped by Vector (`gitops/apps/vector.y
 namespace `logging`) to a container on the Mac named `clickhouse-logs`. It runs
 ClickStack's all-in-one image (`clickhouse/clickstack-all-in-one`): a ClickHouse server,
 the ClickStack (HyperDX) web UI, MongoDB for the UI's state, and an OTel collector.
-Start or repair it with `task logs-db:up` (also run by `task cluster:up`).
+Optional, off by default (`LOGS_ENABLED=true` to opt in; see README). Start or repair it with `task logs-db:up` (run by `task cluster:up` only when enabled).
 
 | What | Where |
 |---|---|

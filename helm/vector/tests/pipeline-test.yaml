@@ -39,7 +39,7 @@ tests:
           kubernetes.pod_namespace: demo
           kubernetes.pod_name: event-generator-1
           kubernetes.container_name: app
-          kubernetes.pod_node_name: tekton-lab-worker2
+          kubernetes.pod_node_name: tekton-lab-worker
     outputs:
       - extract_from: shape
         conditions:
