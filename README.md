@@ -72,10 +72,10 @@ Also required: the `GHCR_PULL_TOKEN` and `FORGEJO_TOKEN` env vars (a
 None are checked up front — each corresponding `*-secret-up.sh`/`*-repo-up.sh`
 script `die`s partway through bootstrap if its env var is unset.
 
-Datadog is behind a flag and off by default: `DATADOG_API_KEY` is only
-required when `DATADOG_ENABLED=true` is exported. Enabling it also means
-moving its Applications back into `gitops/apps/` (see
-`gitops/apps-disabled/README.md`).
+Datadog is on by default (Free tier covers the two worker nodes), so
+`DATADOG_API_KEY` must be exported. To opt out, export
+`DATADOG_ENABLED=false` and move its Applications into
+`gitops/apps-disabled/` (see that README).
 
 ### Where to start
 
@@ -124,7 +124,7 @@ Things worth knowing:
 - Vector 0.58 turns off `${VAR}` interpolation in its config by default, so `helm/vector/values.yaml` sets `VECTOR_DANGEROUSLY_ALLOW_ENV_VAR_INTERPOLATION=true` (and `scripts/vector-config-test.sh` sets it too) for the sink's `${CLICKHOUSE_LOGS_VECTOR_PASSWORD}` to be substituted. Without it the literal string is sent as the password and ClickHouse answers 403. The tradeoff is that interpolation then applies to every config value; the alternative is Vector's secret backends.
 - The chart's Services are disabled (`service.enabled: false`, `serviceHeadless.enabled: false`): Vector has no network sources or API, and the API server rejects portless Services.
 - Logs emitted while the sink was failing (bad password, or a long ClickHouse outage) are dropped, not replayed, because of checkpoint semantics plus log rotation.
-- Datadog is still disabled. The idea of sending the Datadog Agent's logs through Vector into this ClickHouse is future work only.
+- Datadog is re-enabled (2026-10-02). The idea of sending the Datadog Agent's logs through Vector into this ClickHouse is future work only.
 
 ### Troubleshooting
 

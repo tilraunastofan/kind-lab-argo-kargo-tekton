@@ -9,7 +9,7 @@ site: datadoghq.eu
 # Tags every metric/host this cluster reports with a stable identifier, so
 # it's distinguishable in Datadog from anything else reporting to the same
 # org.
-clusterName: kind-lab
+clusterName: tekton-lab
 
 # Where scripts/datadog-secret-up.sh (Task 1) put the API key. No app-key
 # here on purpose — nothing in this infra-metrics-only setup needs one
