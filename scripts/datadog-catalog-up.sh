@@ -16,12 +16,16 @@ source "${SCRIPT_DIR}/lib.sh"
 # from APM traces, and this only matters when that has not happened (or to
 # attach metadata such as links and code locations).
 
+# Global (not `local` in main): the EXIT trap runs after main returns, when a
+# local would already be unset and `set -u` would abort on it.
+body=""
+
 main() {
   require_cmd curl
   [ -n "${DATADOG_API_KEY:-}" ] || die "DATADOG_API_KEY is not set"
   [ -n "${DATADOG_APP_KEY:-}" ] || die "DATADOG_APP_KEY is not set (create an Application Key in Datadog)"
 
-  local f code body
+  local f code
   body="$(mktemp)"
   trap 'rm -f "${body}"' EXIT
   for f in "${SCRIPT_DIR}"/../datadog/service-catalog/*.json; do
