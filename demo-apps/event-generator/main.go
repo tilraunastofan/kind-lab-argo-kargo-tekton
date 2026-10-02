@@ -80,9 +80,10 @@ func main() {
 	// least) two things happening at once: writing to Clickhouse in the
 	// background, and serving HTTP requests in the foreground — all inside
 	// one Kubernetes Pod with one container.
-	go runInserter(ctx, client, rc, ready.Store)
+	evlog := NewEventLog()
+	go runInserter(ctx, recordingInserter{inner: client, log: evlog}, rc, ready.Store)
 
-	mux := newMux(rc, ready.Load)
+	mux := newMux(rc, ready.Load, evlog)
 	log.Printf("event-generator listening on :%s", port)
 	// ListenAndServe blocks forever (until an error) — this is what keeps
 	// the container's process alive, which is what keeps the Pod "Running"

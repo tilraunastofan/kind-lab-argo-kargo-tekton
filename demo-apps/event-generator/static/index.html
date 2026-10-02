@@ -2,39 +2,171 @@
 <!--
   Deliberately no frontend framework/build step, per the spec — this file
   is embedded directly into the Go binary via handlers.go's //go:embed and
-  served as-is. A more complex Kubernetes app might build this as a
-  separate frontend container behind its own Service, but for a single
-  lab demo page, one static file served by the same process that owns the
-  API it calls is the simplest thing that works.
+  served as-is. It polls the same process's GET /api/events/recent (served
+  from memory, see eventlog.go) once a second, so it shows what is being
+  inserted into Clickhouse right now without querying Clickhouse itself.
 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>event-generator</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 32rem; margin: 4rem auto; }
-    button { font-size: 1rem; padding: 0.5rem 1rem; cursor: pointer; }
-    #status { margin-top: 1rem; color: #555; }
+    :root {
+      --bg: #fff; --fg: #1d2330; --muted: #667085; --line: #e4e7ec; --card: #f7f8fa;
+      --accent: #2563eb; --hot: #d97706; --err: #dc2626; --new: #e8f0fe;
+      --page_view: #2563eb; --click: #0d9488; --purchase: #7c3aed; --error: #dc2626;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1218; --fg: #e6e9ef; --muted: #98a2b3; --line: #262c38; --card: #171b24;
+        --accent: #6ea0ff; --hot: #fbbf24; --err: #f87171; --new: #1b2a45;
+        --page_view: #6ea0ff; --click: #2dd4bf; --purchase: #a78bfa; --error: #f87171;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--fg);
+           max-width: 56rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+    h1 { margin: 0 0 .25rem; }
+    .sub { color: var(--muted); margin: 0 0 1.25rem; }
+    .bar { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.25rem; }
+    button { font-size: 1rem; padding: .5rem 1rem; cursor: pointer; border-radius: .4rem;
+             border: 1px solid var(--line); background: var(--card); color: var(--fg); }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    #status { color: var(--muted); }
+    .badge { padding: .15rem .55rem; border-radius: 99px; font-size: .85rem; font-weight: 600;
+             border: 1px solid var(--line); color: var(--muted); }
+    .badge.hot { color: var(--hot); border-color: var(--hot); }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .75rem; margin-bottom: 1rem; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: .5rem; padding: .7rem .9rem; }
+    .card .n { font-size: 1.6rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+    .card .l { color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+    .card.err .n { color: var(--err); }
+    .types { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .type { display: flex; align-items: center; gap: .4rem; font-size: .9rem; }
+    .dot { width: .7rem; height: .7rem; border-radius: 50%; display: inline-block; }
+    table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: .92rem; }
+    th { text-align: left; color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--line); padding: .35rem .5rem; }
+    td { padding: .3rem .5rem; border-bottom: 1px solid var(--line); }
+    td.num, th.num { text-align: right; }
+    tr.fresh td { background: var(--new); }
+    .empty { color: var(--muted); padding: 1rem .5rem; }
+    h2 { font-size: 1rem; margin: 1.25rem 0 .5rem; }
   </style>
 </head>
 <body>
   <h1>event-generator</h1>
-  <p>Writes synthetic events into Clickhouse continuously at a low background rate.</p>
-  <button id="trigger">Trigger High Load</button>
-  <p id="status"></p>
+  <p class="sub">Writes synthetic events into Clickhouse (<code>demo.events</code>). Below: a live sample of what was just inserted.</p>
+
+  <div class="bar">
+    <button id="trigger" class="primary">Trigger High Load</button>
+    <button id="pause">Pause</button>
+    <span id="mode" class="badge">background</span>
+    <span id="status"></span>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="n" id="rate">–</div><div class="l">inserts / sec (10s avg)</div></div>
+    <div class="card"><div class="n" id="total">–</div><div class="l">inserted since start</div></div>
+    <div class="card err"><div class="n" id="failed">–</div><div class="l">failed inserts</div></div>
+  </div>
+  <div class="types" id="types"></div>
+
+  <h2>Latest inserted events</h2>
+  <table>
+    <thead><tr><th>time</th><th>event_type</th><th class="num">value</th><th class="num">user_id</th></tr></thead>
+    <tbody id="rows"><tr><td class="empty" colspan="4">Waiting for events…</td></tr></tbody>
+  </table>
+
   <script>
-    // Calls the same-origin POST /api/load/high handler defined in
-    // handlers.go. Same-origin means no CORS configuration is needed —
-    // this page and the API it calls are served by the same Go process,
-    // behind the same https://event-generator.tekton-lab.test Gateway listener.
-    document.getElementById('trigger').addEventListener('click', async () => {
-      const status = document.getElementById('status');
+    const $ = (id) => document.getElementById(id);
+    const TYPES = ['page_view', 'click', 'purchase', 'error'];
+    const LIMIT = 25;
+    let paused = false;
+    let seen = new Set(); // keys of rows already shown, to highlight only new ones
+
+    const key = (e) => e.timestamp + '|' + e.userId + '|' + e.value;
+
+    function el(tag, text, cls) {
+      const n = document.createElement(tag);
+      if (text !== undefined) n.textContent = text;
+      if (cls) n.className = cls;
+      return n;
+    }
+
+    function render(data) {
+      const s = data.stats;
+      $('rate').textContent = s.ratePerSec.toFixed(1);
+      $('total').textContent = s.total.toLocaleString();
+      $('failed').textContent = s.failed.toLocaleString();
+      const mode = $('mode');
+      mode.textContent = data.highLoad ? 'HIGH LOAD' : 'background';
+      mode.className = 'badge' + (data.highLoad ? ' hot' : '');
+
+      const types = $('types');
+      types.replaceChildren();
+      for (const t of TYPES) {
+        const item = el('span', undefined, 'type');
+        const dot = el('span', undefined, 'dot');
+        dot.style.background = 'var(--' + t + ')';
+        item.append(dot, document.createTextNode(t + ' ' + (s.byType[t] || 0).toLocaleString()));
+        types.append(item);
+      }
+
+      const rows = $('rows');
+      rows.replaceChildren();
+      if (data.events.length === 0) {
+        const tr = el('tr'); const td = el('td', 'No events inserted yet.', 'empty'); td.colSpan = 4;
+        tr.append(td); rows.append(tr);
+        return;
+      }
+      const next = new Set();
+      for (const e of data.events) {
+        const k = key(e);
+        next.add(k);
+        const tr = el('tr', undefined, seen.size && !seen.has(k) ? 'fresh' : '');
+        const time = new Date(e.timestamp);
+        tr.append(el('td', time.toLocaleTimeString([], { hour12: false }) + '.' + String(time.getMilliseconds()).padStart(3, '0')));
+        const type = el('td', e.eventType);
+        type.style.color = 'var(--' + e.eventType + ')';
+        tr.append(type, el('td', e.value.toFixed(2), 'num'), el('td', String(e.userId), 'num'));
+        rows.append(tr);
+      }
+      seen = next;
+    }
+
+    async function poll() {
+      if (paused) return;
+      try {
+        const res = await fetch('/api/events/recent?limit=' + LIMIT, { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        render(await res.json());
+        if ($('status').dataset.err) { $('status').textContent = ''; delete $('status').dataset.err; }
+      } catch (err) {
+        $('status').textContent = 'Cannot reach event-generator: ' + err.message;
+        $('status').dataset.err = '1';
+      }
+    }
+    poll();
+    setInterval(poll, 1000);
+
+    $('pause').addEventListener('click', () => {
+      paused = !paused;
+      $('pause').textContent = paused ? 'Resume' : 'Pause';
+      if (!paused) poll();
+    });
+
+    // Same-origin POST /api/load/high (handlers.go): no CORS needed, this
+    // page and the API are served by the same Go process.
+    $('trigger').addEventListener('click', async () => {
+      const status = $('status');
       status.textContent = 'Triggering...';
       try {
         const res = await fetch('/api/load/high', { method: 'POST' });
         if (!res.ok) throw new Error('request failed: ' + res.status);
         status.textContent = 'High load triggered.';
+        poll();
       } catch (err) {
         status.textContent = 'Error: ' + err.message;
       }

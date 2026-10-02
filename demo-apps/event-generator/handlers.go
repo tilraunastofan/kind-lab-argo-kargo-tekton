@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"io/fs"
 	"net/http"
+	"strconv"
+	"time"
 )
 
 // //go:embed is a compiler directive (not a regular comment — the `//go:`
@@ -23,7 +25,7 @@ var staticFS embed.FS
 // callback (rather than a plain bool) so /healthz always reports live,
 // current state — see main.go, where it's backed by an atomic.Bool the
 // background inserter also writes to.
-func newMux(rc *RateController, ready func() bool) *http.ServeMux {
+func newMux(rc *RateController, ready func() bool, evlog *EventLog) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// fs.Sub re-roots the embedded filesystem so paths are relative to
@@ -52,6 +54,41 @@ func newMux(rc *RateController, ready func() bool) *http.ServeMux {
 		rc.TriggerHighLoad()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]bool{"highLoad": true})
+	})
+
+	// GET /api/events/recent?limit=N — a sample of what the generator is
+	// inserting right now (newest first, default 25, max 200) plus counters,
+	// for the web UI. Served from memory (see eventlog.go), so it works and
+	// stays cheap even while Clickhouse is slow or down.
+	mux.HandleFunc("/api/events/recent", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		limit := 25
+		if v := r.URL.Query().Get("limit"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+				limit = min(n, eventLogCapacity)
+			}
+		}
+		events, stats := evlog.Snapshot(limit)
+		type row struct {
+			Timestamp time.Time `json:"timestamp"`
+			EventType string    `json:"eventType"`
+			Value     float64   `json:"value"`
+			UserID    uint32    `json:"userId"`
+		}
+		rows := make([]row, len(events))
+		for i, e := range events {
+			rows[i] = row{e.Timestamp, e.EventType, e.Value, e.UserID}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		json.NewEncoder(w).Encode(map[string]any{
+			"events":   rows,
+			"stats":    stats,
+			"highLoad": rc.IsHighLoad(),
+		})
 	})
 
 	// GET /healthz backs both the Deployment's readinessProbe and
